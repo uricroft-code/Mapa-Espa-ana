@@ -1,134 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<style>
-  body { background-color: #f0f4f8; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-  
-  #puzzle-svg { width: 500px; height: 500px; background: white; border-radius: 20px; shadow: 0 10px 25px rgba(0,0,0,0.1); }
-
-  /* Estilo de los huecos (slots) */
-  .slot { fill: #e2e8f0; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 4; }
-
-  /* Estilo de las piezas */
-  .piece { cursor: grab; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); transition: transform 0.1s; }
-  .piece:active { cursor: grabbing; }
-  
-  /* Colores para las provincias */
-  [data-province="a_coruna"] { fill: #60a5fa; }
-  [data-province="lugo"]     { fill: #34d399; }
-  [data-province="ourense"]  { fill: #fbbf24; }
-  [data-province="pontevedra"] { fill: #f87171; }
-
-  /* Etiquetas de texto */
-  text { pointer-events: none; font-weight: bold; font-size: 12px; fill: #1e293b; text-anchor: middle; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mapa de España – Puzzle</title>
+  <style>
+    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center;padding:20px}
+    .app{max-width:980px;width:100%}
+    header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:6px 12px}
+    button{border:0;border-radius:10px;padding:8px 12px;cursor:pointer;background:#f97316;color:#fff}
+    svg{margin-top:14px;width:100%;height:auto;background:#fff;border-radius:18px;box-shadow:0 10px 25px rgba(0,0,0,.1)}
+    .slot{fill:#e5e7eb;stroke:#9ca3af;stroke-dasharray:6 6;pointer-events:none}
+    .piece{fill:#3b82f6;stroke:#1e40af;cursor:grab;transition:transform .15s ease}
+    .piece.dragging{cursor:grabbing;opacity:.85}
+    .piece.placed{pointer-events:none}
+    footer{margin-top:10px;color:#374151}
+  </style>
 </head>
 <body>
+<div class="app">
+  <header>
+    <div class="pill"><b>Zona:</b> Galicia</div>
+    <div class="pill"><b>Progreso:</b> <span id="progress">0</span>/4</div>
+    <button id="resetBtn">Reiniciar</button>
+  </header>
 
-<svg id="puzzle-svg" viewBox="0 0 400 400">
-  <!-- TABLERO / HUECOS -->
-  <g id="board">
-    <rect class="slot" data-province="a_coruna" x="100" y="80" width="80" height="80" />
-    <rect class="slot" data-province="lugo" x="200" y="80" width="80" height="80" />
-    <rect class="slot" data-province="ourense" x="100" y="180" width="80" height="80" />
-    <rect class="slot" data-province="pontevedra" x="200" y="180" width="80" height="80" />
-  </g>
-
-  <!-- PIEZAS MÓVILES -->
-  <g id="pieces">
-    <g class="draggable" data-province="a_coruna">
-      <rect class="piece" x="20" y="80" width="80" height="80" rx="10" />
-      <text x="60" y="125">A Coruña</text>
-    </g>
-    
-    <g class="draggable" data-province="lugo">
-      <rect class="piece" x="20" y="180" width="80" height="80" rx="10" />
-      <text x="60" y="225">Lugo</text>
+  <svg id="svg" viewBox="0 0 420 300">
+    <g id="board">
+      <rect class="slot" data-province="a_coruna" x="210" y="60" width="70" height="70" rx="10"/>
+      <rect class="slot" data-province="lugo" x="290" y="60" width="70" height="70" rx="10"/>
+      <rect class="slot" data-province="ourense" x="210" y="140" width="70" height="70" rx="10"/>
+      <rect class="slot" data-province="pontevedra" x="290" y="140" width="70" height="70" rx="10"/>
     </g>
 
-    <g class="draggable" data-province="ourense">
-      <rect class="piece" x="300" y="80" width="80" height="80" rx="10" />
-      <text x="340" y="125">Ourense</text>
+    <g id="pieces">
+      <rect class="piece" data-province="a_coruna" x="40" y="40" width="70" height="70" rx="10"/>
+      <rect class="piece" data-province="lugo" x="40" y="120" width="70" height="70" rx="10"/>
+      <rect class="piece" data-province="ourense" x="40" y="200" width="70" height="70" rx="10"/>
+      <rect class="piece" data-province="pontevedra" x="40" y="280" width="70" height="70" rx="10"/>
     </g>
 
-    <g class="draggable" data-province="pontevedra">
-      <rect class="piece" x="300" y="180" width="80" height="80" rx="10" />
-      <text x="340" y="225">Pontevedra</text>
-    </g>
-  </g>
-</svg>
+    <text x="300" y="240" text-anchor="middle" font-size="16" fill="#6b7280">GALICIA</text>
+  </svg>
+
+  <footer>Arrastra cada pieza cerca de su hueco gris para encajarla.</footer>
+</div>
 
 <script>
-  const svg = document.getElementById('puzzle-svg');
-  let selectedElement = null;
-  let offset = { x: 0, y: 0 };
+  const svg = document.getElementById("svg");
+  const progressEl = document.getElementById("progress");
+  const resetBtn = document.getElementById("resetBtn");
+  const placed = new Set();
+  const SNAP = 30;
 
-  // Obtener coordenadas del ratón relativas al SVG
-  function getMousePos(evt) {
-    const CTM = svg.getScreenCTM();
-    return {
-      x: (evt.clientX - CTM.e) / CTM.a,
-      y: (evt.clientY - CTM.f) / CTM.d
-    };
+  let active = null;
+  let startPt = null;
+  let startTranslate = {x:0,y:0};
+
+  function svgPoint(evt){
+    const p = svg.createSVGPoint();
+    p.x = evt.clientX; p.y = evt.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
   }
 
-  svg.addEventListener('mousedown', (evt) => {
-    const target = evt.target.closest('.draggable');
-    if (target) {
-      selectedElement = target;
-      const mousePos = getMousePos(evt);
-      
-      // Calcular la diferencia entre el ratón y el origen del grupo
-      const transform = selectedElement.getAttribute('transform') || 'translate(0,0)';
-      const match = /translate\(([^,]+),([^)]+)\)/.exec(transform);
-      const tx = match ? parseFloat(match[1]) : 0;
-      const ty = match ? parseFloat(match[2]) : 0;
-      
-      offset.x = mousePos.x - tx;
-      offset.y = mousePos.y - ty;
-      
-      // Poner la pieza encima de todas
-      svg.getElementById('pieces').appendChild(selectedElement);
-    }
+  function parseTranslate(el){
+    const t = el.getAttribute("transform") || "translate(0,0)";
+    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
+    return {x: m?parseFloat(m[1]):0, y: m?parseFloat(m[2]):0};
+  }
+
+  function setTranslate(el,x,y){
+    el.setAttribute("transform", `translate(${x}, ${y})`);
+  }
+
+  function trySnap(piece){
+    const prov = piece.dataset.province;
+    const slot = svg.querySelector(`.slot[data-province="${prov}"]`);
+    if(!slot) return false;
+
+    const pb = piece.getBBox();
+    const sb = slot.getBBox();
+
+    const dx = sb.x - pb.x;
+    const dy = sb.y - pb.y;
+
+    const dist = Math.hypot(dx, dy);
+    if(dist > SNAP) return false;
+
+    setTranslate(piece, dx, dy);
+    piece.classList.add("placed");
+    placed.add(prov);
+    progressEl.textContent = placed.size;
+
+    if(placed.size === 4) alert("¡Galicia completada! 🎉");
+    return true;
+  }
+
+  svg.addEventListener("pointerdown", (e) => {
+    const target = e.target.closest(".piece");
+    if(!target || target.classList.contains("placed")) return;
+
+    active = target;
+    active.classList.add("dragging");
+    startPt = svgPoint(e);
+    startTranslate = parseTranslate(active);
   });
 
-  window.addEventListener('mousemove', (evt) => {
-    if (selectedElement) {
-      const mousePos = getMousePos(evt);
-      const x = mousePos.x - offset.x;
-      const y = mousePos.y - offset.y;
-      selectedElement.setAttribute('transform', `translate(${x}, ${y})`);
-    }
+  window.addEventListener("pointermove", (e) => {
+    if(!active) return;
+    const p = svgPoint(e);
+    const dx = p.x - startPt.x;
+    const dy = p.y - startPt.y;
+    setTranslate(active, startTranslate.x + dx, startTranslate.y + dy);
   });
 
-  window.addEventListener('mouseup', (evt) => {
-    if (selectedElement) {
-      const province = selectedElement.getAttribute('data-province');
-      const slot = svg.querySelector(`.slot[data-province="${province}"]`);
-      
-      const mousePos = getMousePos(evt);
-      const slotX = parseFloat(slot.getAttribute('x'));
-      const slotY = parseFloat(slot.getAttribute('y'));
-      
-      // Coordenadas actuales de la pieza (Origen inicial + traslación)
-      const rect = selectedElement.querySelector('.piece');
-      const currentX = parseFloat(rect.getAttribute('x')) + (mousePos.x - offset.x);
-      const currentY = parseFloat(rect.getAttribute('y')) + (mousePos.y - offset.y);
+  window.addEventListener("pointerup", () => {
+    if(!active) return;
+    active.classList.remove("dragging");
 
-      // Si está cerca del hueco (margen de 30px), encajar
-      if (Math.abs(currentX - slotX) < 30 && Math.abs(currentY - slotY) < 30) {
-        const finalX = slotX - parseFloat(rect.getAttribute('x'));
-        const finalY = slotY - parseFloat(rect.getAttribute('y'));
-        selectedElement.setAttribute('transform', `translate(${finalX}, ${finalY})`);
-        selectedElement.style.pointerEvents = 'none'; // Ya no se puede mover
-        selectedElement.querySelector('.piece').style.stroke = "#fff";
-        selectedElement.querySelector('.piece').style.strokeWidth = "4";
-      }
-      
-      selectedElement = null;
-    }
+    const snapped = trySnap(active);
+    if(!snapped) setTranslate(active, 0, 0);
+
+    active = null;
   });
+
+  resetBtn.onclick = () => {
+    document.querySelectorAll(".piece").forEach(p=>{
+      p.classList.remove("placed");
+      setTranslate(p,0,0);
+    });
+    placed.clear();
+    progressEl.textContent = "0";
+  };
 </script>
-
 </body>
 </html>
