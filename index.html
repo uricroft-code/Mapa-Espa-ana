@@ -1,138 +1,167 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mapa de España – Puzzle</title>
-  <style>
-    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center;padding:20px}
-    .app{max-width:980px;width:100%}
-    header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:6px 12px}
-    button{border:0;border-radius:10px;padding:8px 12px;cursor:pointer;background:#f97316;color:#fff}
-    svg{margin-top:14px;width:100%;height:auto;background:#fff;border-radius:18px;box-shadow:0 10px 25px rgba(0,0,0,.1)}
-    .slot{fill:#e5e7eb;stroke:#9ca3af;stroke-dasharray:6 6;pointer-events:none}
-    .piece{fill:#3b82f6;stroke:#1e40af;cursor:grab;transition:transform .15s ease}
-    .piece.dragging{cursor:grabbing;opacity:.85}
-    .piece.placed{pointer-events:none}
-    footer{margin-top:10px;color:#374151}
-  </style>
-</head>
-<body>
-<div class="app">
-  <header>
-    <div class="pill"><b>Zona:</b> Galicia</div>
-    <div class="pill"><b>Progreso:</b> <span id="progress">0</span>/4</div>
-    <button id="resetBtn">Reiniciar</button>
-  </header>
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Undo2, Trophy, Map as MapIcon } from 'lucide-react';
 
-  <svg id="svg" viewBox="0 0 420 300">
-    <g id="board">
-      <rect class="slot" data-province="a_coruna" x="210" y="60" width="70" height="70" rx="10"/>
-      <rect class="slot" data-province="lugo" x="290" y="60" width="70" height="70" rx="10"/>
-      <rect class="slot" data-province="ourense" x="210" y="140" width="70" height="70" rx="10"/>
-      <rect class="slot" data-province="pontevedra" x="290" y="140" width="70" height="70" rx="10"/>
-    </g>
+// --- DATOS DE EJEMPLO (Aquí añadirías las 50 provincias) ---
+// El 'path' es la forma real. 'x' e 'y' es su posición correcta en el mapa.
+const PROVINCIAS_DATA = [
+  { id: 'madrid', nombre: 'Madrid', color: '#fbbf24', x: 205, y: 165, path: "M 25.5 12.4 L 29.2 16.5 L 27.5 22.4 L 21.2 24.5 L 16.5 20.2 L 18.2 14.5 Z" },
+  { id: 'barcelona', nombre: 'Barcelona', color: '#f87171', x: 410, y: 110, path: "M 15.2 5.5 L 22.1 8.2 L 25.5 15.5 L 20.2 22.1 L 12.5 18.2 L 10.5 10.2 Z" },
+  { id: 'sevilla', nombre: 'Sevilla', color: '#60a5fa', x: 140, y: 280, path: "M 10.2 15.5 L 18.5 10.2 L 28.2 15.5 L 25.5 25.5 L 15.2 28.2 L 8.2 20.2 Z" },
+  { id: 'a_coruna', nombre: 'A Coruña', color: '#34d399', x: 45, y: 45, path: "M 5.5 5.5 L 15.2 2.2 L 22.1 8.2 L 18.2 18.2 L 8.2 15.2 L 2.2 10.2 Z" },
+];
 
-    <g id="pieces">
-      <rect class="piece" data-province="a_coruna" x="40" y="40" width="70" height="70" rx="10"/>
-      <rect class="piece" data-province="lugo" x="40" y="120" width="70" height="70" rx="10"/>
-      <rect class="piece" data-province="ourense" x="40" y="200" width="70" height="70" rx="10"/>
-      <rect class="piece" data-province="pontevedra" x="40" y="280" width="70" height="70" rx="10"/>
-    </g>
+export default function SpainPuzzle() {
+  const [piezasSueltas, setPiezasSueltas] = useState(
+    PROVINCIAS_DATA.map(p => ({
+      ...p,
+      currentX: 500 + Math.random() * 200, // Dispersas a la derecha
+      currentY: 50 + Math.random() * 300,
+      encajada: false
+    }))
+  );
+  
+  const [puntos, setPuntos] = useState(0);
+  const [nivel, setNivel] = useState(2);
 
-    <text x="300" y="240" text-anchor="middle" font-size="16" fill="#6b7280">GALICIA</text>
-  </svg>
+  const handleDragEnd = (id, info) => {
+    const pieza = piezasSueltas.find(p => p.id === id);
+    const dropX = pieza.currentX + info.offset.x;
+    const dropY = pieza.currentY + info.offset.y;
 
-  <footer>Arrastra cada pieza cerca de su hueco gris para encajarla.</footer>
-</div>
+    // Distancia entre donde soltamos y el hueco real
+    const distancia = Math.sqrt(
+      Math.pow(dropX - pieza.x, 2) + Math.pow(dropY - pieza.y, 2)
+    );
 
-<script>
-  const svg = document.getElementById("svg");
-  const progressEl = document.getElementById("progress");
-  const resetBtn = document.getElementById("resetBtn");
-  const placed = new Set();
-  const SNAP = 30;
-
-  let active = null;
-  let startPt = null;
-  let startTranslate = {x:0,y:0};
-
-  function svgPoint(evt){
-    const p = svg.createSVGPoint();
-    p.x = evt.clientX; p.y = evt.clientY;
-    return p.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function parseTranslate(el){
-    const t = el.getAttribute("transform") || "translate(0,0)";
-    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
-    return {x: m?parseFloat(m[1]):0, y: m?parseFloat(m[2]):0};
-  }
-
-  function setTranslate(el,x,y){
-    el.setAttribute("transform", `translate(${x}, ${y})`);
-  }
-
-  function trySnap(piece){
-    const prov = piece.dataset.province;
-    const slot = svg.querySelector(`.slot[data-province="${prov}"]`);
-    if(!slot) return false;
-
-    const pb = piece.getBBox();
-    const sb = slot.getBBox();
-
-    const dx = sb.x - pb.x;
-    const dy = sb.y - pb.y;
-
-    const dist = Math.hypot(dx, dy);
-    if(dist > SNAP) return false;
-
-    setTranslate(piece, dx, dy);
-    piece.classList.add("placed");
-    placed.add(prov);
-    progressEl.textContent = placed.size;
-
-    if(placed.size === 4) alert("¡Galicia completada! 🎉");
-    return true;
-  }
-
-  svg.addEventListener("pointerdown", (e) => {
-    const target = e.target.closest(".piece");
-    if(!target || target.classList.contains("placed")) return;
-
-    active = target;
-    active.classList.add("dragging");
-    startPt = svgPoint(e);
-    startTranslate = parseTranslate(active);
-  });
-
-  window.addEventListener("pointermove", (e) => {
-    if(!active) return;
-    const p = svgPoint(e);
-    const dx = p.x - startPt.x;
-    const dy = p.y - startPt.y;
-    setTranslate(active, startTranslate.x + dx, startTranslate.y + dy);
-  });
-
-  window.addEventListener("pointerup", () => {
-    if(!active) return;
-    active.classList.remove("dragging");
-
-    const snapped = trySnap(active);
-    if(!snapped) setTranslate(active, 0, 0);
-
-    active = null;
-  });
-
-  resetBtn.onclick = () => {
-    document.querySelectorAll(".piece").forEach(p=>{
-      p.classList.remove("placed");
-      setTranslate(p,0,0);
-    });
-    placed.clear();
-    progressEl.textContent = "0";
+    // Si está a menos de 30px, encaja automáticamente
+    if (distancia < 30) {
+      setPiezasSueltas(prev => prev.map(p => 
+        p.id === id ? { ...p, encajada: true, currentX: pieza.x, currentY: pieza.y } : p
+      ));
+      setPuntos(prev => prev + 10);
+    }
   };
-</script>
-</body>
-</html>
+
+  const reiniciar = () => {
+    setPiezasSueltas(prev => prev.map(p => ({
+      ...p,
+      encajada: false,
+      currentX: 500 + Math.random() * 200,
+      currentY: 50 + Math.random() * 300
+    })));
+    setPuntos(0);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-200 p-8 flex flex-col items-center font-sans">
+      
+      {/* Título y Marcador */}
+      <div className="w-full max-w-6xl flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md border-b-4 border-slate-300">
+        <h1 className="text-2xl font-black text-slate-700 flex items-center gap-2">
+          <MapIcon /> Provincias de España (Puzzle Real)
+        </h1>
+        <div className="flex gap-4 items-center">
+          <div className="bg-green-700 text-white px-4 py-2 rounded-lg font-bold">
+            Puntos: {puntos} / {PROVINCIAS_DATA.length * 10}
+          </div>
+          <button onClick={reiniciar} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+            <Undo2 className="text-slate-600" />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative w-full max-w-6xl h-[600px] bg-white rounded-3xl shadow-2xl border-8 border-slate-300 overflow-hidden flex">
+        
+        {/* LADO IZQUIERDO: EL MAPA GUÍA */}
+        <div className="flex-1 relative bg-slate-50 border-r border-slate-100">
+          <svg viewBox="0 0 500 450" className="w-full h-full">
+            {/* Dibujamos los huecos vacíos (Siluetas) */}
+            {PROVINCIAS_DATA.map(p => (
+              <path
+                key={`slot-${p.id}`}
+                d={p.path}
+                transform={`translate(${p.x}, ${p.y})`}
+                className="fill-slate-200 stroke-slate-300 stroke-1"
+              />
+            ))}
+            
+            {/* Dibujamos las piezas que YA han encajado */}
+            {piezasSueltas.filter(p => p.encajada).map(p => (
+              <motion.path
+                initial={{ opacity: 0, scale: 1.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                key={`fixed-${p.id}`}
+                d={p.path}
+                transform={`translate(${p.x}, ${p.y})`}
+                fill={p.color}
+                className="stroke-white stroke-1"
+              />
+            ))}
+          </svg>
+
+          {/* Recuadro de Canarias (Estilo Enrique Alonso) */}
+          <div className="absolute bottom-4 left-4 w-40 h-24 border-2 border-red-400 bg-white/50 rounded-lg flex items-center justify-center text-[10px] text-red-400 font-bold uppercase">
+            Canarias
+          </div>
+        </div>
+
+        {/* LADO DERECHO: ÁREA DE PIEZAS SUELTAS */}
+        <div className="w-80 bg-slate-100 p-4 relative overflow-y-auto">
+          <div className="text-center text-xs font-bold text-slate-400 mb-4 uppercase tracking-widest">
+            Arrastra las piezas al mapa
+          </div>
+          
+          {/* Piezas móviles */}
+          {piezasSueltas.filter(p => !p.encajada).map(p => (
+            <motion.div
+              key={`piece-${p.id}`}
+              drag
+              dragMomentum={false}
+              onDragEnd={(_, info) => handleDragEnd(p.id, info)}
+              className="absolute cursor-grab active:cursor-grabbing z-50"
+              style={{ left: 0, top: 0, x: p.currentX, y: p.currentY }}
+            >
+              <svg width="80" height="80" viewBox="0 0 50 50">
+                <path
+                  d={p.path}
+                  fill={p.color}
+                  className="stroke-slate-700 stroke-1 drop-shadow-lg"
+                />
+                {nivel <= 2 && (
+                  <text 
+                    x="25" y="25" 
+                    className="text-[6px] fill-slate-800 font-bold pointer-events-none" 
+                    textAnchor="middle"
+                  >
+                    {p.nombre}
+                  </text>
+                )}
+              </svg>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Niveles de Dificultad (UI Inferior) */}
+        <div className="absolute bottom-6 right-84 flex gap-2 items-center bg-green-800 p-2 rounded-xl border-2 border-white shadow-lg">
+          <span className="text-white text-xs font-bold px-2">NIVELES:</span>
+          {[1, 2, 3, 4].map(n => (
+            <button
+              key={n}
+              onClick={() => setNivel(n)}
+              className={`w-8 h-8 rounded-lg font-bold transition-all ${
+                nivel === n ? 'bg-white text-green-800 scale-110' : 'bg-green-600 text-white hover:bg-green-500'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 text-slate-500 text-sm font-medium">
+        Inspirado en los juegos educativos de Enrique Alonso
+      </div>
+    </div>
+  );
+}
