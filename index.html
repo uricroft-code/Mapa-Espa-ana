@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mapa de España — Puzzle por Provincias</title>
+  <title>Mapa de España — Puzzle por Comunidades y Provincias</title>
 
   <style>
     body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center}
     .wrap{width:min(1280px,96vw);padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:700}
-    button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:800}
+    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:800}
+    button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:900}
     .btn1{background:#f97316;color:#fff}
     .btn2{background:#ef4444;color:#fff}
     .btn3{background:#10b981;color:#fff}
@@ -51,8 +51,8 @@
       font-size:12px;
       white-space:nowrap;
     }
-    .ok{color:#16a34a;font-weight:800}
-    .bad{color:#dc2626;font-weight:800}
+    .ok{color:#16a34a;font-weight:900}
+    .bad{color:#dc2626;font-weight:900}
     code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
   </style>
 </head>
@@ -64,7 +64,7 @@
       <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
       <button class="btn1" id="shuffle">Ordenar piezas</button>
       <button class="btn2" id="reset">Reiniciar zona</button>
-      <button class="btn3" id="skip" title="Pasa a la siguiente comunidad">Siguiente</button>
+      <button class="btn3" id="next">Siguiente</button>
     </header>
 
     <div class="grid">
@@ -77,7 +77,7 @@
         <div id="status" class="hint"></div>
         <div class="list" id="chips"></div>
         <div class="hint">
-          Consejo: si cuesta encajar, sube <code>SNAP_DISTANCE</code>.
+          Si cuesta encajar: sube <code>SNAP_DISTANCE</code> a 45.
         </div>
       </div>
     </div>
@@ -85,39 +85,28 @@
 
 <script>
 (async function(){
-  const STAGE = document.getElementById("stage");
-  const LOADING = document.getElementById("loading");
-  const ZONE = document.getElementById("zone");
-  const PROG = document.getElementById("prog");
-  const TOTAL = document.getElementById("total");
-  const CHIPS = document.getElementById("chips");
+  const STAGE  = document.getElementById("stage");
+  const LOADING= document.getElementById("loading");
+  const ZONE   = document.getElementById("zone");
+  const PROG   = document.getElementById("prog");
+  const TOTAL  = document.getElementById("total");
+  const CHIPS  = document.getElementById("chips");
   const STATUS = document.getElementById("status");
 
   const BTN_SHUFFLE = document.getElementById("shuffle");
-  const BTN_RESET = document.getElementById("reset");
-  const BTN_SKIP = document.getElementById("skip");
+  const BTN_RESET   = document.getElementById("reset");
+  const BTN_NEXT    = document.getElementById("next");
 
   const SNAP_DISTANCE = 35;
 
-  // ============ Helpers ============
-  const norm = (s) => (s || "")
+  // ========= Utilidades =========
+  const norm = (s) => (s||"")
     .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/\s+/g," ")
     .trim();
 
-  // Intentar sacar nombre humano del SVG (title/label)
-  function getHumanName(el){
-    const t = el.querySelector?.("title")?.textContent?.trim();
-    if (t) return t;
-    const aria = el.getAttribute?.("aria-label")?.trim();
-    if (aria) return aria;
-    const label = el.getAttribute?.("inkscape:label")?.trim();
-    if (label) return label;
-    return "";
-  }
-
-  // Códigos -> nombres (fallback si el SVG no trae title)
+  // Fallback: códigos del SVG -> nombres humanos
   const CODE_TO_NAME = {
     "ES-C":"A Coruña","ES-LU":"Lugo","ES-OR":"Ourense","ES-PO":"Pontevedra",
     "ES-O":"Asturias","ES-S":"Cantabria",
@@ -137,8 +126,7 @@
     "ES-CE":"Ceuta","ES-ML":"Melilla"
   };
 
-  // Provincia (nombre) -> Comunidad (para niveles)
-  // (usamos nombres normalizados, así da igual si viene con acentos)
+  // Provincia (nombre normalizado) -> Comunidad
   const PROV_TO_CC = new Map([
     // Galicia
     ["a coruna","Galicia"],["la coruna","Galicia"],["coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["orense","Galicia"],["pontevedra","Galicia"],
@@ -174,31 +162,26 @@
     ["ceuta","Ceuta"],["melilla","Melilla"]
   ]);
 
-  // Orden de niveles (como querías, norte primero)
+  // Orden de juego
   const LEVELS = [
-    { cc: "Galicia" },
-    { cc: "Principado de Asturias" },
-    { cc: "Cantabria" },
-    { cc: "País Vasco" },
-    { cc: "Navarra" },
-    { cc: "La Rioja" },
-    { cc: "Aragón" },
-    { cc: "Cataluña" },
-    { cc: "Castilla y León" },
-    { cc: "Comunidad de Madrid" },
-    { cc: "Castilla-La Mancha" },
-    { cc: "Extremadura" },
-    { cc: "Comunidad Valenciana" },
-    { cc: "Región de Murcia" },
-    { cc: "Andalucía" },
-    { cc: "Illes Balears" },
-    { cc: "Canarias" },
-    { cc: "Ceuta" },
-    { cc: "Melilla" }
+    "Galicia","Principado de Asturias","Cantabria","País Vasco","Navarra","La Rioja",
+    "Aragón","Cataluña","Castilla y León","Comunidad de Madrid","Castilla-La Mancha",
+    "Extremadura","Comunidad Valenciana","Región de Murcia","Andalucía",
+    "Illes Balears","Canarias","Ceuta","Melilla"
   ];
 
-  // ============ Cargar SVG ============
-  let svgText = "";
+  function getNameFromSvg(el){
+    const t = el.querySelector?.("title")?.textContent?.trim();
+    if(t) return t;
+    const aria = el.getAttribute?.("aria-label")?.trim();
+    if(aria) return aria;
+    const label = el.getAttribute?.("inkscape:label")?.trim();
+    if(label) return label;
+    return "";
+  }
+
+  // ========= Cargar SVG =========
+  let svgText="";
   try{
     const res = await fetch("./spain-provinces.svg");
     if(!res.ok) throw "";
@@ -207,7 +190,7 @@
     LOADING?.remove();
     STAGE.innerHTML = `
       <div class="bad">No puedo cargar <code>spain-provinces.svg</code></div>
-      <div class="hint">Asegúrate de que existe en el repo y se llama EXACTAMENTE así.</div>`;
+      <div class="hint">Debe estar en la raíz del repo, con ese nombre exacto.</div>`;
     return;
   }
 
@@ -220,7 +203,7 @@
     return;
   }
 
-  // LIMPIEZA: quita nombres azules del SVG
+  // Quitar textos/labels del SVG (los nombres azules)
   svg.querySelectorAll("text").forEach(t => t.remove());
   svg.querySelectorAll('[class*="label"],[id*="label"]').forEach(el => el.remove());
 
@@ -230,70 +213,52 @@
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   }
 
-  // Detectar candidatos por id ES-...
-  let candidates = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
-  if(!candidates.length) candidates = Array.from(svg.querySelectorAll('path[id^="ES-"]'));
+  // Detectar provincias por ids ES-XX
+  let raw = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
+  if(!raw.length) raw = Array.from(svg.querySelectorAll('path[id^="ES-"]'));
 
-  if(!candidates.length){
+  if(!raw.length){
     STATUS.innerHTML = `<span class="bad">No encuentro provincias con ids ES-XX en tu SVG</span>`;
     return;
   }
 
-  // Construir catálogo de provincias: code -> {el, name, cc}
-  const catalog = new Map();
-
-  for (const el of candidates) {
+  // Construir catálogo
+  const catalog = raw.map(el => {
     const code = el.id;
-    if (!code) continue;
-
-    // Nombre humano: del SVG o fallback por código
-    const fromSvg = getHumanName(el);
+    const fromSvg = getNameFromSvg(el);
     const name = fromSvg || CODE_TO_NAME[code] || code;
-
-    // Comunidad: por nombre (normalizado)
     const cc = PROV_TO_CC.get(norm(name)) || "OTRAS";
+    return { code, el, name, cc };
+  }).filter(p => p.cc !== "OTRAS");
 
-    catalog.set(code, { code, el, name, cc });
-  }
-
-  // Filtrar “cosas raras” del SVG:
-  // nos quedamos solo con provincias con cc conocida (no OTRAS)
-  const known = Array.from(catalog.values()).filter(p => p.cc !== "OTRAS");
-
-  if(!known.length){
-    STATUS.innerHTML = `<span class="bad">He detectado ES-XX pero no puedo asignarlos a comunidades</span>`;
-    return;
-  }
-
-  STATUS.innerHTML = `<span class="ok">SVG OK</span> · Provincias útiles: <b>${known.length}</b>`;
+  STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
 
   // Preparar SVG para juego
-  const board = document.createElementNS("http://www.w3.org/2000/svg","g");
+  const board  = document.createElementNS("http://www.w3.org/2000/svg","g");
   const pieces = document.createElementNS("http://www.w3.org/2000/svg","g");
   board.setAttribute("id","board");
   pieces.setAttribute("id","pieces");
   svg.innerHTML = "";
   svg.append(board, pieces);
 
-  // Estado de nivel
+  // Estado del nivel
   let levelIndex = 0;
-  let active = null;
-  let activePlaced = new Set();
+  let placed = new Set();
   let activeList = [];
 
-  // ============ Render nivel ============
+  // ========= Render Nivel =========
   function renderLevel(){
-    activePlaced = new Set();
+    placed = new Set();
     board.innerHTML = "";
     pieces.innerHTML = "";
     CHIPS.innerHTML = "";
 
-    const levelCC = LEVELS[levelIndex]?.cc || "España (provincias)";
-    ZONE.textContent = levelCC;
+    const cc = LEVELS[levelIndex];
+    ZONE.textContent = cc;
 
-    activeList = known.filter(p => p.cc === levelCC);
+    activeList = catalog.filter(p => p.cc === cc);
 
-    // Si alguna comunidad está vacía (por SVG raro), saltamos sola
+    // Si por cualquier razón está vacío, pasamos al siguiente
     if(activeList.length === 0){
       nextLevel();
       return;
@@ -302,8 +267,8 @@
     TOTAL.textContent = String(activeList.length);
     PROG.textContent = "0";
 
-    // Crear slots + piezas
-    for (const p of activeList) {
+    // Slots y piezas
+    for(const p of activeList){
       const slot = p.el.cloneNode(true);
       slot.removeAttribute("id");
       slot.setAttribute("class","slot");
@@ -317,7 +282,6 @@
       piece.setAttribute("data-name", p.name);
       pieces.appendChild(piece);
 
-      // Chip con nombre bonito
       const chip = document.createElement("div");
       chip.className = "chip";
       chip.textContent = p.name;
@@ -327,7 +291,7 @@
     shufflePieces();
   }
 
-  // Ordenar piezas (rejilla a la izquierda)
+  // Ordenar piezas en rejilla
   function shufflePieces(){
     const els = Array.from(pieces.querySelectorAll(".piece"))
       .filter(el => !el.classList.contains("placed"));
@@ -350,15 +314,12 @@
     p.x = evt.clientX; p.y = evt.clientY;
     return p.matrixTransform(svg.getScreenCTM().inverse());
   };
-
   const parseTranslate = (el) => {
     const t = el.getAttribute("transform") || "translate(0,0)";
     const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
     return { x: m?+m[1]:0, y: m?+m[2]:0 };
   };
-
   const setTranslate = (el,x,y) => el.setAttribute("transform", `translate(${x},${y})`);
-
   const centerOf = (el) => {
     const b = el.getBBox();
     return { x: b.x + b.width/2, y: b.y + b.height/2, box: b };
@@ -375,37 +336,34 @@
     const dist = Math.hypot(pc.x - sc.x, pc.y - sc.y);
     if(dist > SNAP_DISTANCE) return false;
 
-    // Alinear caja
     const dx = sc.box.x - pc.box.x;
     const dy = sc.box.y - pc.box.y;
     setTranslate(piece, dx, dy);
 
     piece.classList.add("placed");
-    activePlaced.add(code);
-    PROG.textContent = String(activePlaced.size);
+    placed.add(code);
 
-    // ¿nivel completado?
-    if(activePlaced.size === activeList.length){
+    PROG.textContent = String(placed.size);
+
+    if(placed.size === activeList.length){
       setTimeout(() => {
         alert(`¡${ZONE.textContent} completada! 🎉`);
         nextLevel();
-      }, 50);
+      }, 60);
     }
     return true;
   }
 
   // Drag
-  let dragging = null;
-  let startPt = null;
-  let startTr = {x:0,y:0};
+  let dragging=null, startPt=null, startTr={x:0,y:0};
 
   svg.addEventListener("pointerdown", (e) => {
-    const target = e.target.closest?.(".piece");
-    if(!target || target.classList.contains("placed")) return;
+    const t = e.target.closest?.(".piece");
+    if(!t || t.classList.contains("placed")) return;
 
-    dragging = target;
+    dragging = t;
     dragging.classList.add("dragging");
-    pieces.appendChild(dragging); // al frente
+    pieces.appendChild(dragging);
 
     startPt = svgPoint(e);
     startTr = parseTranslate(dragging);
@@ -424,32 +382,24 @@
 
     const ok = trySnap(dragging);
     if(!ok){
-      // vuelve a la rejilla (sin castigar)
-      dragging.setAttribute("transform", "translate(0,0)");
+      dragging.setAttribute("transform","translate(0,0)");
       shufflePieces();
     }
-
     dragging = null;
   });
 
   // Botones
   BTN_SHUFFLE.onclick = shufflePieces;
-
-  BTN_RESET.onclick = () => {
-    // Reiniciar SOLO nivel actual
-    renderLevel();
-  };
-
+  BTN_RESET.onclick = () => renderLevel();
   function nextLevel(){
     levelIndex++;
     if(levelIndex >= LEVELS.length){
       alert("¡España completada! 🇪🇸");
-      levelIndex = 0; // vuelve a empezar
+      levelIndex = 0;
     }
     renderLevel();
   }
-
-  BTN_SKIP.onclick = nextLevel;
+  BTN_NEXT.onclick = nextLevel;
 
   // Start
   renderLevel();
