@@ -9,11 +9,12 @@
     body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center}
     .wrap{width:min(1280px,96vw);padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:800}
+    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:900}
     button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:900}
     .btn1{background:#f97316;color:#fff}
     .btn2{background:#ef4444;color:#fff}
     .btn3{background:#10b981;color:#fff}
+    .btn4{background:#6366f1;color:#fff}
 
     .grid{display:grid;grid-template-columns: 1.35fr .65fr; gap:14px; margin-top:14px}
     @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
@@ -30,6 +31,12 @@
       vector-effect: non-scaling-stroke;
       pointer-events:none;
     }
+    .slot.hint{
+      fill:#fde68a !important;
+      stroke:#f59e0b !important;
+      stroke-dasharray:0 !important;
+    }
+
     .piece{
       fill:#60a5fa;
       stroke:#1e40af;
@@ -51,6 +58,13 @@
       font-size:12px;
       white-space:nowrap;
     }
+    .chip.done{
+      background:#ecfdf5;
+      border-color:#86efac;
+      color:#166534;
+      font-weight:900;
+    }
+
     .ok{color:#16a34a;font-weight:900}
     .bad{color:#dc2626;font-weight:900}
     code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
@@ -62,7 +76,10 @@
     <header>
       <div class="pill">Zona: <span id="zone">—</span></div>
       <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
+      <div class="pill">Objetivo: <span id="targetName">—</span></div>
+
       <button class="btn1" id="shuffle">Ordenar piezas</button>
+      <button class="btn4" id="hintBtn">Pista</button>
       <button class="btn2" id="reset">Reiniciar zona</button>
       <button class="btn3" id="next">Siguiente</button>
     </header>
@@ -77,7 +94,8 @@
         <div id="status" class="hint"></div>
         <div class="list" id="chips"></div>
         <div class="hint">
-          Si cuesta encajar: sube <code>SNAP_DISTANCE</code> a 45.
+          Regla: solo encaja la provincia del <b>Objetivo</b>.<br>
+          Si cuesta: sube <code>SNAP_DISTANCE</code> a 45.
         </div>
       </div>
     </div>
@@ -93,9 +111,12 @@
   const CHIPS  = document.getElementById("chips");
   const STATUS = document.getElementById("status");
 
+  const TARGET_NAME = document.getElementById("targetName");
+
   const BTN_SHUFFLE = document.getElementById("shuffle");
   const BTN_RESET   = document.getElementById("reset");
   const BTN_NEXT    = document.getElementById("next");
+  const BTN_HINT    = document.getElementById("hintBtn");
 
   const SNAP_DISTANCE = 35;
 
@@ -106,7 +127,6 @@
     .replace(/\s+/g," ")
     .trim();
 
-  // Fallback: códigos del SVG -> nombres humanos
   const CODE_TO_NAME = {
     "ES-C":"A Coruña","ES-LU":"Lugo","ES-OR":"Ourense","ES-PO":"Pontevedra",
     "ES-O":"Asturias","ES-S":"Cantabria",
@@ -126,43 +146,26 @@
     "ES-CE":"Ceuta","ES-ML":"Melilla"
   };
 
-  // Provincia (nombre normalizado) -> Comunidad
   const PROV_TO_CC = new Map([
-    // Galicia
     ["a coruna","Galicia"],["la coruna","Galicia"],["coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["orense","Galicia"],["pontevedra","Galicia"],
-    // Asturias / Cantabria
     ["asturias","Principado de Asturias"],["cantabria","Cantabria"],
-    // País Vasco
     ["alava","País Vasco"],["araba","País Vasco"],["gipuzkoa","País Vasco"],["guipuzcoa","País Vasco"],["bizkaia","País Vasco"],["vizcaya","País Vasco"],
-    // Navarra / La Rioja
     ["navarra","Navarra"],["la rioja","La Rioja"],["rioja","La Rioja"],
-    // Aragón
     ["huesca","Aragón"],["teruel","Aragón"],["zaragoza","Aragón"],
-    // Cataluña
     ["barcelona","Cataluña"],["girona","Cataluña"],["gerona","Cataluña"],["lleida","Cataluña"],["lerida","Cataluña"],["tarragona","Cataluña"],
-    // Castilla y León
     ["avila","Castilla y León"],["burgos","Castilla y León"],["leon","Castilla y León"],["palencia","Castilla y León"],["salamanca","Castilla y León"],
     ["segovia","Castilla y León"],["soria","Castilla y León"],["valladolid","Castilla y León"],["zamora","Castilla y León"],
-    // Madrid
     ["madrid","Comunidad de Madrid"],
-    // Castilla-La Mancha
     ["albacete","Castilla-La Mancha"],["ciudad real","Castilla-La Mancha"],["cuenca","Castilla-La Mancha"],["guadalajara","Castilla-La Mancha"],["toledo","Castilla-La Mancha"],
-    // Extremadura
     ["caceres","Extremadura"],["badajoz","Extremadura"],
-    // Comunidad Valenciana
     ["alicante","Comunidad Valenciana"],["alacant","Comunidad Valenciana"],["castellon","Comunidad Valenciana"],["castello","Comunidad Valenciana"],["valencia","Comunidad Valenciana"],
-    // Murcia
     ["murcia","Región de Murcia"],
-    // Andalucía
     ["almeria","Andalucía"],["cadiz","Andalucía"],["cordoba","Andalucía"],["granada","Andalucía"],["huelva","Andalucía"],["jaen","Andalucía"],["malaga","Andalucía"],["sevilla","Andalucía"],
-    // Baleares / Canarias
     ["illes balears","Illes Balears"],["baleares","Illes Balears"],
     ["las palmas","Canarias"],["santa cruz de tenerife","Canarias"],["tenerife","Canarias"],
-    // Ceuta / Melilla
     ["ceuta","Ceuta"],["melilla","Melilla"]
   ]);
 
-  // Orden de juego
   const LEVELS = [
     "Galicia","Principado de Asturias","Cantabria","País Vasco","Navarra","La Rioja",
     "Aragón","Cataluña","Castilla y León","Comunidad de Madrid","Castilla-La Mancha",
@@ -203,7 +206,7 @@
     return;
   }
 
-  // Quitar textos/labels del SVG (los nombres azules)
+  // Limpieza: quitar textos/labels (nombres azules)
   svg.querySelectorAll("text").forEach(t => t.remove());
   svg.querySelectorAll('[class*="label"],[id*="label"]').forEach(el => el.remove());
 
@@ -222,7 +225,7 @@
     return;
   }
 
-  // Construir catálogo
+  // Catálogo usable
   const catalog = raw.map(el => {
     const code = el.id;
     const fromSvg = getNameFromSvg(el);
@@ -241,14 +244,38 @@
   svg.innerHTML = "";
   svg.append(board, pieces);
 
-  // Estado del nivel
+  // Estado nivel
   let levelIndex = 0;
   let placed = new Set();
   let activeList = [];
 
+  // Objetivo actual
+  let currentTarget = null;
+  let chipByCode = new Map();
+
+  function clearHints(){
+    board.querySelectorAll(".slot.hint").forEach(s => s.classList.remove("hint"));
+  }
+
+  function pickNewTarget(){
+    const remaining = activeList.filter(p => !placed.has(p.code));
+    if(remaining.length === 0){
+      currentTarget = null;
+      TARGET_NAME.textContent = "—";
+      clearHints();
+      return;
+    }
+    currentTarget = remaining[Math.floor(Math.random()*remaining.length)];
+    TARGET_NAME.textContent = currentTarget.name;
+    clearHints();
+  }
+
   // ========= Render Nivel =========
   function renderLevel(){
     placed = new Set();
+    currentTarget = null;
+    chipByCode = new Map();
+
     board.innerHTML = "";
     pieces.innerHTML = "";
     CHIPS.innerHTML = "";
@@ -258,7 +285,6 @@
 
     activeList = catalog.filter(p => p.cc === cc);
 
-    // Si por cualquier razón está vacío, pasamos al siguiente
     if(activeList.length === 0){
       nextLevel();
       return;
@@ -266,8 +292,8 @@
 
     TOTAL.textContent = String(activeList.length);
     PROG.textContent = "0";
+    TARGET_NAME.textContent = "—";
 
-    // Slots y piezas
     for(const p of activeList){
       const slot = p.el.cloneNode(true);
       slot.removeAttribute("id");
@@ -286,9 +312,11 @@
       chip.className = "chip";
       chip.textContent = p.name;
       CHIPS.appendChild(chip);
+      chipByCode.set(p.code, chip);
     }
 
     shufflePieces();
+    pickNewTarget();
   }
 
   // Ordenar piezas en rejilla
@@ -327,12 +355,15 @@
 
   function trySnap(piece){
     const code = piece.getAttribute("data-province");
+
+    // SOLO encaja si es el objetivo
+    if(currentTarget && code !== currentTarget.code) return false;
+
     const slot = board.querySelector(`.slot[data-province="${code}"]`);
     if(!slot) return false;
 
     const pc = centerOf(piece);
     const sc = centerOf(slot);
-
     const dist = Math.hypot(pc.x - sc.x, pc.y - sc.y);
     if(dist > SNAP_DISTANCE) return false;
 
@@ -343,13 +374,22 @@
     piece.classList.add("placed");
     placed.add(code);
 
+    const chip = chipByCode.get(code);
+    if(chip) chip.classList.add("done");
+
     PROG.textContent = String(placed.size);
 
+    // Nuevo objetivo
+    pickNewTarget();
+
     if(placed.size === activeList.length){
+      currentTarget = null;
+      TARGET_NAME.textContent = "—";
+      clearHints();
       setTimeout(() => {
         alert(`¡${ZONE.textContent} completada! 🎉`);
         nextLevel();
-      }, 60);
+      }, 80);
     }
     return true;
   }
@@ -391,6 +431,7 @@
   // Botones
   BTN_SHUFFLE.onclick = shufflePieces;
   BTN_RESET.onclick = () => renderLevel();
+
   function nextLevel(){
     levelIndex++;
     if(levelIndex >= LEVELS.length){
@@ -401,9 +442,17 @@
   }
   BTN_NEXT.onclick = nextLevel;
 
+  BTN_HINT.onclick = () => {
+    if(!currentTarget) return;
+    clearHints();
+    const slot = board.querySelector(`.slot[data-province="${currentTarget.code}"]`);
+    if(slot) slot.classList.add("hint");
+  };
+
   // Start
   renderLevel();
 })();
 </script>
 </body>
 </html>
+
