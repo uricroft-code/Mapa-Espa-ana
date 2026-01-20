@@ -6,8 +6,8 @@
   <title>España — Puzzle por Comunidades y Provincias</title>
 
   <style>
-    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center}
-    .wrap{width:min(1320px,96vw);padding:16px}
+    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif}
+    .wrap{width:min(1320px,96vw);margin:0 auto;padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:900}
     button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:900}
@@ -16,13 +16,30 @@
     .btn3{background:#10b981;color:#fff}
     .btn4{background:#6366f1;color:#fff}
 
-    .grid{display:grid;grid-template-columns: 1.4fr .6fr; gap:14px; margin-top:14px}
+    /* IMPORTANTE: bandeja fuera del SVG, así no rompemos viewBox */
+    .grid{display:grid;grid-template-columns: 1fr 360px; gap:14px; margin-top:14px}
     @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
 
     .card{background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);padding:12px}
-    #stage{width:100%;height:min(80vh,820px);border-radius:16px;overflow:hidden}
-    #stage svg{width:100%;height:100%;display:block}
+    #stage{width:100%;height:min(80vh,860px);border-radius:16px;overflow:hidden}
+    #stage svg{width:100%;height:100%;display:block;background:#fff}
 
+    /* Bandeja de piezas */
+    .tray{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:55vh;overflow:auto;padding-right:6px}
+    .pieceBox{
+      border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;
+      padding:8px;display:flex;flex-direction:column;gap:8px
+    }
+    .pieceName{font-weight:900;font-size:12px;color:#0b1220}
+    .mini{height:90px;border-radius:12px;background:#fff;overflow:hidden;border:1px solid #e5e7eb}
+    .mini svg{width:100%;height:100%;display:block}
+
+    .hint{color:#374151;margin-top:10px;line-height:1.4}
+    .ok{color:#16a34a;font-weight:900}
+    .bad{color:#dc2626;font-weight:900}
+    code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
+
+    /* Estilos dentro del SVG */
     .slot{
       fill:none;
       stroke:#111827;
@@ -30,7 +47,7 @@
       stroke-dasharray:7 6;
       vector-effect: non-scaling-stroke;
       pointer-events:none;
-      opacity:.85;
+      opacity:.8;
     }
     .slot.hint{
       stroke:#f59e0b !important;
@@ -38,17 +55,6 @@
       stroke-dasharray:0 !important;
       opacity:1 !important;
     }
-
-    .piece{
-      stroke:#111827;
-      stroke-width:1.1;
-      vector-effect: non-scaling-stroke;
-      cursor:grab;
-      transition:transform .08s ease;
-      filter: drop-shadow(0 3px 8px rgba(0,0,0,.20));
-    }
-    .piece.dragging{cursor:grabbing;opacity:.9}
-
     .prov-label{
       font-size:10px;
       font-weight:800;
@@ -72,21 +78,9 @@
       pointer-events:none;
       user-select:none;
     }
-
-    .hint{color:#374151;margin-top:10px;line-height:1.4}
-    .list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;max-height:60vh;overflow:auto;padding-right:6px}
-    .chip{
-      border:1px solid #bfdbfe;
-      background:#eff6ff;
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:12px;
-      white-space:nowrap;
+    .placedGlow{
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.18));
     }
-    .chip.done{background:#ecfdf5;border-color:#86efac;color:#166534;font-weight:900}
-    .ok{color:#16a34a;font-weight:900}
-    .bad{color:#dc2626;font-weight:900}
-    code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
   </style>
 </head>
 
@@ -111,11 +105,13 @@
       <div class="card">
         <b>Piezas disponibles</b>
         <div id="status" class="hint"></div>
-        <div class="list" id="chips"></div>
+
+        <div class="tray" id="tray"></div>
+
         <div class="hint">
-          ✅ El mapa se ve entero siempre.<br>
-          🎯 Solo encaja la provincia del <b>Objetivo</b> (para hacerlo tipo “misión”).<br>
-          Si lo quieres “libre” (cualquier provincia de la comunidad), dímelo y lo dejo en 1 cambio.
+          ✅ El mapa se ve entero (no tocamos el viewBox).<br>
+          🎯 Solo encaja la provincia del <b>Objetivo</b> (modo misión).<br>
+          Si quieres “libre”, te lo cambio en 1 línea.
         </div>
       </div>
     </div>
@@ -128,9 +124,9 @@
   const ZONE   = document.getElementById("zone");
   const PROG   = document.getElementById("prog");
   const TOTAL  = document.getElementById("total");
-  const CHIPS  = document.getElementById("chips");
   const STATUS = document.getElementById("status");
   const TARGET_NAME = document.getElementById("targetName");
+  const TRAY = document.getElementById("tray");
 
   const BTN_SHUFFLE = document.getElementById("shuffle");
   const BTN_RESET   = document.getElementById("reset");
@@ -139,14 +135,12 @@
 
   const SNAP_DISTANCE = 35;
 
-  // ===== Utilidades =====
   const norm = (s) => (s||"")
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/\s+/g," ")
     .trim();
 
-  // Color estable por código (cada provincia un color distinto)
   function colorFor(code){
     let h = 0;
     for (let i=0;i<code.length;i++) h = (h*31 + code.charCodeAt(i)) >>> 0;
@@ -154,7 +148,6 @@
     return `hsl(${hue} 70% 60%)`;
   }
 
-  // Fallback código -> nombre
   const CODE_TO_NAME = {
     "ES-C":"A Coruña","ES-LU":"Lugo","ES-OR":"Ourense","ES-PO":"Pontevedra",
     "ES-O":"Asturias","ES-S":"Cantabria",
@@ -174,7 +167,6 @@
     "ES-CE":"Ceuta","ES-ML":"Melilla"
   };
 
-  // Provincia -> Comunidad
   const PROV_TO_CC = new Map([
     ["a coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["pontevedra","Galicia"],
     ["asturias","Principado de Asturias"],["cantabria","Cantabria"],
@@ -228,24 +220,18 @@
   STAGE.insertAdjacentHTML("beforeend", svgText);
 
   const svg = STAGE.querySelector("svg");
-  if(!svg){ STAGE.innerHTML = "<div class='bad'>SVG inválido</div>"; return; }
+  if(!svg){ STAGE.innerHTML="<div class='bad'>SVG inválido</div>"; return; }
 
-  // Quitar textos/labels del SVG original (para que no se monten)
+  // eliminar textos del svg original
   svg.querySelectorAll("text").forEach(t => t.remove());
   svg.querySelectorAll('[class*="label"],[id*="label"]').forEach(el => el.remove());
 
-  if(!svg.getAttribute("viewBox")){
-    const w = svg.getAttribute("width") || 1000;
-    const h = svg.getAttribute("height") || 1000;
-    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-  }
-
-  // Detectar provincias por ES-XX
+  // Detectar provincias ES-XX
   let raw = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
   if(!raw.length) raw = Array.from(svg.querySelectorAll('path[id^="ES-"]'));
-  if(!raw.length){ STATUS.innerHTML = `<span class="bad">No encuentro ids ES-XX</span>`; return; }
+  if(!raw.length){ STATUS.innerHTML=`<span class="bad">No encuentro ids ES-XX</span>`; return; }
 
-  // Catalogo: code, name, cc, node
+  // catálogo
   const catalog = raw.map(el => {
     const code = el.id;
     const name = getNameFromSvg(el) || CODE_TO_NAME[code] || code;
@@ -255,24 +241,24 @@
 
   STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
 
-  // ===== Capas del juego (mapa siempre visible) =====
-  const baseMap   = document.createElementNS("http://www.w3.org/2000/svg","g"); baseMap.setAttribute("id","baseMap");
-  const ccLabels  = document.createElementNS("http://www.w3.org/2000/svg","g"); ccLabels.setAttribute("id","ccLabels");
-  const provLabels= document.createElementNS("http://www.w3.org/2000/svg","g"); provLabels.setAttribute("id","provLabels");
-  const board     = document.createElementNS("http://www.w3.org/2000/svg","g"); board.setAttribute("id","board");   // slots de la comunidad
-  const pieces    = document.createElementNS("http://www.w3.org/2000/svg","g"); pieces.setAttribute("id","pieces"); // piezas a arrastrar
+  // Capas (sin tocar viewBox)
+  const baseMap   = document.createElementNS("http://www.w3.org/2000/svg","g");
+  const slotsLayer= document.createElementNS("http://www.w3.org/2000/svg","g");
+  const placedLayer= document.createElementNS("http://www.w3.org/2000/svg","g");
+  const provLabels= document.createElementNS("http://www.w3.org/2000/svg","g");
+  const ccLabels  = document.createElementNS("http://www.w3.org/2000/svg","g");
 
   svg.innerHTML = "";
-  svg.append(baseMap, board, pieces, provLabels, ccLabels);
+  svg.append(baseMap, slotsLayer, placedLayer, provLabels, ccLabels);
 
-  // ===== Construir MAPA BASE coloreado (todas las provincias en su sitio) =====
+  // Mapa base a color (suave)
   const baseByCode = new Map();
   for(const p of catalog){
     const shape = p.node.cloneNode(true);
     shape.removeAttribute("id");
     shape.setAttribute("data-province", p.code);
     shape.setAttribute("fill", colorFor(p.code));
-    shape.setAttribute("opacity", "0.35"); // base suave (cuando se coloque pieza, se ve más fuerte)
+    shape.setAttribute("opacity", "0.35");
     shape.setAttribute("stroke", "#ffffff");
     shape.setAttribute("stroke-width", "1");
     shape.setAttribute("vector-effect","non-scaling-stroke");
@@ -280,42 +266,25 @@
     baseByCode.set(p.code, shape);
   }
 
-  // ===== ViewBox ampliado para bandeja (sin cortar el mapa) =====
-  // Calculamos bbox del mapa base
-  const mapBox = baseMap.getBBox();
-  const trayW = mapBox.width * 0.34;  // ancho de bandeja a la izquierda
-  const margin = mapBox.width * 0.06;
-
-  const vx = mapBox.x - trayW - margin;
-  const vy = mapBox.y - margin;
-  const vw = mapBox.width + trayW + margin*2;
-  const vh = mapBox.height + margin*2;
-  svg.setAttribute("viewBox", `${vx} ${vy} ${vw} ${vh}`);
-  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
-
-  // ===== Labels de provincias (uno por provincia, centro del bbox) =====
+  // Labels provincias (centro bbox)
   function buildProvinceLabels(){
     provLabels.innerHTML = "";
     for(const p of catalog){
       const base = baseByCode.get(p.code);
       if(!base) continue;
       const b = base.getBBox();
-      const tx = b.x + b.width/2;
-      const ty = b.y + b.height/2;
-
       const t = document.createElementNS("http://www.w3.org/2000/svg","text");
       t.setAttribute("class","prov-label");
-      t.setAttribute("x", tx);
-      t.setAttribute("y", ty);
+      t.setAttribute("x", b.x + b.width/2);
+      t.setAttribute("y", b.y + b.height/2);
       t.setAttribute("text-anchor","middle");
       t.setAttribute("dominant-baseline","middle");
       t.textContent = p.name;
       provLabels.appendChild(t);
     }
   }
-  buildProvinceLabels();
 
-  // ===== Labels de comunidades (centro del bbox del grupo de provincias) =====
+  // Labels comunidades (bbox union)
   function buildCCLabels(){
     ccLabels.innerHTML = "";
     const byCC = new Map();
@@ -323,49 +292,48 @@
       if(!byCC.has(p.cc)) byCC.set(p.cc, []);
       byCC.get(p.cc).push(p);
     }
-
     for(const [ccName, arr] of byCC.entries()){
-      // unión de bboxes
-      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
       for(const p of arr){
         const base = baseByCode.get(p.code);
         if(!base) continue;
         const b = base.getBBox();
-        minX = Math.min(minX, b.x);
-        minY = Math.min(minY, b.y);
-        maxX = Math.max(maxX, b.x + b.width);
-        maxY = Math.max(maxY, b.y + b.height);
+        minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
+        maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
       }
       if(!isFinite(minX)) continue;
-      const cx = (minX+maxX)/2;
-      const cy = (minY+maxY)/2;
-
       const t = document.createElementNS("http://www.w3.org/2000/svg","text");
       t.setAttribute("class","cc-label");
-      t.setAttribute("x", cx);
-      t.setAttribute("y", cy);
+      t.setAttribute("x",(minX+maxX)/2);
+      t.setAttribute("y",(minY+maxY)/2);
       t.setAttribute("text-anchor","middle");
       t.setAttribute("dominant-baseline","middle");
       t.textContent = ccName;
       ccLabels.appendChild(t);
     }
   }
+
+  // Espera 1 frame para que getBBox funcione bien
+  await new Promise(requestAnimationFrame);
+  buildProvinceLabels();
   buildCCLabels();
 
-  // ===== Juego por niveles =====
+  // ===== Juego =====
   let levelIndex = 0;
   let placed = new Set();
   let activeList = [];
   let currentTarget = null;
-  let chipByCode = new Map();
+
+  let pieceElByCode = new Map(); // piezas drag (en tray)
+  let slotElByCode = new Map();
 
   function clearHints(){
-    board.querySelectorAll(".slot.hint").forEach(s => s.classList.remove("hint"));
+    slotsLayer.querySelectorAll(".slot.hint").forEach(s => s.classList.remove("hint"));
   }
 
   function pickNewTarget(){
     const remaining = activeList.filter(p => !placed.has(p.code));
-    if(remaining.length === 0){
+    if(!remaining.length){
       currentTarget = null;
       TARGET_NAME.textContent = "—";
       clearHints();
@@ -379,10 +347,13 @@
   function renderLevel(){
     placed = new Set();
     currentTarget = null;
-    chipByCode = new Map();
-    board.innerHTML = "";
-    pieces.innerHTML = "";
-    CHIPS.innerHTML = "";
+    activeList = [];
+    pieceElByCode.clear();
+    slotElByCode.clear();
+
+    slotsLayer.innerHTML = "";
+    placedLayer.innerHTML = "";
+    TRAY.innerHTML = "";
 
     const cc = LEVELS[levelIndex];
     ZONE.textContent = cc;
@@ -392,55 +363,69 @@
     PROG.textContent = "0";
     TARGET_NAME.textContent = "—";
 
-    // slots (solo contorno) en su sitio
+    // slots de esa comunidad (solo contorno)
     for(const p of activeList){
       const slot = p.node.cloneNode(true);
       slot.removeAttribute("id");
       slot.setAttribute("class","slot");
       slot.setAttribute("data-province", p.code);
-      board.appendChild(slot);
+      slotsLayer.appendChild(slot);
+      slotElByCode.set(p.code, slot);
 
-      // pieza: misma forma, pero se va a la bandeja
+      // mini svg para la pieza (bandeja)
+      const box = document.createElement("div");
+      box.className="pieceBox";
+      box.setAttribute("data-code", p.code);
+
+      const name = document.createElement("div");
+      name.className="pieceName";
+      name.textContent = p.name;
+      box.appendChild(name);
+
+      const mini = document.createElement("div");
+      mini.className="mini";
+      mini.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"></svg>`;
+      const miniSvg = mini.querySelector("svg");
+
+      // clon de la provincia dentro de miniSvg
       const piece = p.node.cloneNode(true);
       piece.removeAttribute("id");
-      piece.setAttribute("class","piece");
       piece.setAttribute("data-province", p.code);
-      piece.setAttribute("data-name", p.name);
       piece.setAttribute("fill", colorFor(p.code));
-      pieces.appendChild(piece);
+      piece.setAttribute("stroke", "#111827");
+      piece.setAttribute("stroke-width", "1");
+      piece.setAttribute("vector-effect","non-scaling-stroke");
+      piece.classList.add("placedGlow");
 
-      const chip = document.createElement("div");
-      chip.className = "chip";
-      chip.textContent = p.name;
-      CHIPS.appendChild(chip);
-      chipByCode.set(p.code, chip);
+      miniSvg.appendChild(piece);
+
+      // ajustar viewBox del mini svg al bbox de la pieza (con margen)
+      const b = piece.getBBox();
+      const m = Math.max(b.width,b.height)*0.15;
+      miniSvg.setAttribute("viewBox", `${b.x-m} ${b.y-m} ${b.width+2*m} ${b.height+2*m}`);
+      miniSvg.setAttribute("preserveAspectRatio","xMidYMid meet`);
+
+      box.appendChild(mini);
+      TRAY.appendChild(box);
+
+      // guardamos referencia a la pieza REAL para arrastrar:
+      // al hacer pointerdown en la mini, creamos una pieza flotante en el SVG principal
+      box.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        if(placed.has(p.code)) return;
+        startDragFromTray(p.code, ev);
+      });
     }
 
-    shufflePieces();
     pickNewTarget();
   }
 
-  // Bandeja a la izquierda (sin tapar el mapa)
-  function shufflePieces(){
-    const els = Array.from(pieces.querySelectorAll(".piece")).filter(el => !el.classList.contains("placed"));
+  // Dragging: creamos pieza en el SVG principal (sobre el mapa) para moverla
+  let dragging = null;
+  let startPt = null;
+  let startTr = {x:0,y:0};
+  let draggingCode = null;
 
-    const cols = 2;
-    const gapX = trayW*0.48;
-    const gapY = mapBox.height*0.06;
-    const startX = mapBox.x - trayW - margin*0.2; // dentro de la bandeja
-    const startY = mapBox.y + margin*0.4;
-
-    els.forEach((el, i) => {
-      const b = el.getBBox();
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const tx = startX + col*gapX - b.x;
-      const ty = startY + row*gapY - b.y;
-      el.setAttribute("transform", `translate(${tx},${ty})`);
-    });
-  }
-
-  // Drag helpers
   const svgPoint = (evt) => {
     const p = svg.createSVGPoint();
     p.x = evt.clientX; p.y = evt.clientY;
@@ -457,13 +442,41 @@
     return { x: b.x + b.width/2, y: b.y + b.height/2, box: b };
   };
 
-  function trySnap(piece){
-    const code = piece.getAttribute("data-province");
+  function startDragFromTray(code, ev){
+    // modo misión: solo permitimos arrastrar la del objetivo (esto evita frustración)
+    if(currentTarget && code !== currentTarget.code) return;
 
-    // Solo encaja el objetivo
-    if(currentTarget && code !== currentTarget.code) return false;
+    // crea la pieza en el SVG principal si no existe
+    let piece = pieceElByCode.get(code);
+    if(!piece){
+      const p = activeList.find(x=>x.code===code);
+      piece = p.node.cloneNode(true);
+      piece.removeAttribute("id");
+      piece.setAttribute("data-province", code);
+      piece.setAttribute("fill", colorFor(code));
+      piece.setAttribute("stroke","#111827");
+      piece.setAttribute("stroke-width","1.1");
+      piece.setAttribute("vector-effect","non-scaling-stroke");
+      piece.classList.add("placedGlow");
+      svg.appendChild(piece); // encima de todo
+      pieceElByCode.set(code, piece);
 
-    const slot = board.querySelector(`.slot[data-province="${code}"]`);
+      // colocarlo cerca del puntero
+      const sp = svgPoint(ev);
+      const b = piece.getBBox();
+      setTranslate(piece, sp.x - (b.x + b.width/2), sp.y - (b.y + b.height/2));
+    }
+
+    dragging = piece;
+    draggingCode = code;
+    dragging.style.cursor = "grabbing";
+    startPt = svgPoint(ev);
+    startTr = parseTranslate(dragging);
+    dragging.setPointerCapture?.(ev.pointerId);
+  }
+
+  function trySnap(piece, code){
+    const slot = slotElByCode.get(code);
     if(!slot) return false;
 
     const pc = centerOf(piece);
@@ -471,55 +484,38 @@
     const dist = Math.hypot(pc.x - sc.x, pc.y - sc.y);
     if(dist > SNAP_DISTANCE) return false;
 
-    // Alinear a hueco
     const dx = sc.box.x - pc.box.x;
     const dy = sc.box.y - pc.box.y;
     setTranslate(piece, dx, dy);
 
-    piece.classList.add("placed");
-    placed.add(code);
+    // fijar en capa placed
+    placedLayer.appendChild(piece);
 
-    // “subimos” opacidad del mapa base de esa provincia (para que se note colocada)
+    placed.add(code);
+    PROG.textContent = String(placed.size);
+
+    // bajar opacidad del base para que se note “colocada”
     const base = baseByCode.get(code);
     if(base) base.setAttribute("opacity","0.12");
 
-    const chip = chipByCode.get(code);
-    if(chip) chip.classList.add("done");
+    // marcar en tray
+    const box = TRAY.querySelector(`.pieceBox[data-code="${code}"]`);
+    if(box){
+      box.style.opacity="0.55";
+      box.style.filter="grayscale(0.2)";
+      const label = box.querySelector(".pieceName");
+      if(label) label.textContent = "✅ " + label.textContent.replace(/^✅\s*/,"");
+    }
 
-    PROG.textContent = String(placed.size);
-
-    // nuevo objetivo
     pickNewTarget();
 
     if(placed.size === activeList.length){
-      currentTarget = null;
-      TARGET_NAME.textContent = "—";
-      clearHints();
-      setTimeout(() => {
-        alert(`¡${ZONE.textContent} completada! 🎉`);
-        nextLevel();
-      }, 80);
+      setTimeout(()=>{ alert(`¡${ZONE.textContent} completada! 🎉`); nextLevel(); }, 80);
     }
     return true;
   }
 
-  // Drag
-  let dragging=null, startPt=null, startTr={x:0,y:0};
-
-  svg.addEventListener("pointerdown", (e) => {
-    const t = e.target.closest?.(".piece");
-    if(!t || t.classList.contains("placed")) return;
-
-    dragging = t;
-    dragging.classList.add("dragging");
-    pieces.appendChild(dragging);
-
-    startPt = svgPoint(e);
-    startTr = parseTranslate(dragging);
-    dragging.setPointerCapture?.(e.pointerId);
-  });
-
-  window.addEventListener("pointermove", (e) => {
+  svg.addEventListener("pointermove", (e) => {
     if(!dragging) return;
     const p = svgPoint(e);
     setTranslate(dragging, startTr.x + (p.x - startPt.x), startTr.y + (p.y - startPt.y));
@@ -527,21 +523,33 @@
 
   window.addEventListener("pointerup", () => {
     if(!dragging) return;
-    dragging.classList.remove("dragging");
-
-    const ok = trySnap(dragging);
+    const ok = trySnap(dragging, draggingCode);
     if(!ok){
-      dragging.setAttribute("transform","translate(0,0)");
-      shufflePieces();
+      // vuelve a “zona neutra” (lo dejamos donde está para que el jugador lo intente otra vez)
     }
     dragging = null;
+    draggingCode = null;
   });
 
-  // Botones
-  BTN_SHUFFLE.onclick = shufflePieces;
+  BTN_HINT.onclick = () => {
+    if(!currentTarget) return;
+    clearHints();
+    const slot = slotElByCode.get(currentTarget.code);
+    if(slot) slot.classList.add("hint");
+  };
+
+  BTN_SHUFFLE.onclick = () => {
+    // en bandeja no hay posiciones que barajar (está por CSS), pero dejamos botón por UI
+    // si quieres, puedo hacer que mezcle el orden de tarjetas en la bandeja
+    const items = Array.from(TRAY.children);
+    for(let i=items.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      TRAY.insertBefore(items[j], items[i]);
+    }
+  };
 
   BTN_RESET.onclick = () => {
-    // restaurar opacidades base
+    // restaura base opacidad de esa comunidad
     for(const p of activeList){
       const base = baseByCode.get(p.code);
       if(base) base.setAttribute("opacity","0.35");
@@ -563,13 +571,6 @@
     renderLevel();
   }
   BTN_NEXT.onclick = nextLevel;
-
-  BTN_HINT.onclick = () => {
-    if(!currentTarget) return;
-    clearHints();
-    const slot = board.querySelector(`.slot[data-province="${currentTarget.code}"]`);
-    if(slot) slot.classList.add("hint");
-  };
 
   // Start
   renderLevel();
