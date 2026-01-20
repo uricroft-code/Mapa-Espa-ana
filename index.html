@@ -4,26 +4,67 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mapa de España — Puzzle por Provincias</title>
+
   <style>
-    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif;display:flex;justify-content:center}
+    body{
+      margin:0;
+      background:#f5f7ff;
+      font-family:system-ui,sans-serif;
+      display:flex;
+      justify-content:center;
+    }
     .wrap{width:min(1280px,96vw);padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px}
-    button{border:0;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600}
+    .pill{
+      background:#eef2ff;
+      border:1px solid #c7d2fe;
+      border-radius:12px;
+      padding:8px 12px;
+      font-weight:600;
+    }
+    button{
+      border:0;
+      border-radius:10px;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:700;
+    }
     .btn1{background:#f97316;color:#fff}
     .btn2{background:#ef4444;color:#fff}
 
-    .grid{display:grid;grid-template-columns: 1.35fr .65fr; gap:14px; margin-top:14px}
-    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 980px){
+      .grid{grid-template-columns:1fr}
+    }
 
-    .card{background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);padding:12px}
-    #stage{width:100%;height:min(78vh,760px);border-radius:16px;overflow:hidden}
-    #stage svg{width:100%;height:100%;display:block}
+    .card{
+      background:#fff;
+      border-radius:16px;
+      box-shadow:0 10px 25px rgba(0,0,0,.08);
+      padding:12px;
+    }
 
-    /* Slots y piezas (con trazos que no se deforman al hacer zoom) */
+    #stage{
+      width:100%;
+      height:min(78vh,760px);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    #stage svg{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
+    /* Slots y piezas */
     .slot{
-      fill:#e0f2fe;
-      stroke:#60a5fa;
+      fill:#f1f5f9;
+      stroke:#94a3b8;
       stroke-width:1;
       stroke-dasharray:6 6;
       vector-effect: non-scaling-stroke;
@@ -40,12 +81,19 @@
     .piece.dragging{cursor:grabbing;opacity:.85}
     .piece.placed{
       pointer-events:none;
-      cursor:default;
       filter: drop-shadow(0 3px 8px rgba(0,0,0,.18));
     }
 
-    .hint{color:#374151;margin:10px 0 0;line-height:1.35}
-    .list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;max-height:55vh;overflow:auto;padding-right:6px}
+    .hint{color:#374151;margin-top:10px;line-height:1.4}
+    .list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+      max-height:55vh;
+      overflow:auto;
+      padding-right:6px;
+    }
     .chip{
       border:1px solid #bfdbfe;
       background:#eff6ff;
@@ -59,27 +107,24 @@
     code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <header>
-      <div class="pill"><b>Zona:</b> <span id="zone">España (provincias)</span></div>
-      <div class="pill"><b>Progreso:</b> <span id="prog">0</span>/<span id="total">0</span></div>
+      <div class="pill">Zona: España (provincias)</div>
+      <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
       <button class="btn1" id="shuffle">Ordenar piezas</button>
       <button class="btn2" id="reset">Reiniciar</button>
     </header>
 
     <div class="grid">
       <div class="card" id="stage">
-        <div id="loading" style="padding:12px;color:#374151">Cargando mapa real…</div>
+        <div id="loading" class="hint">Cargando mapa real…</div>
       </div>
 
       <div class="card">
         <b>Piezas disponibles</b>
-        <div class="hint">
-          Arrastra una provincia y suéltala cerca de su hueco. Si está cerca, encaja sola.<br><br>
-          Archivo requerido en el repo: <code>spain-provinces.svg</code>
-          <div id="status" class="hint"></div>
-        </div>
+        <div id="status" class="hint"></div>
         <div class="list" id="chips"></div>
       </div>
     </div>
@@ -94,227 +139,154 @@
   const CHIPS = document.getElementById("chips");
   const STATUS = document.getElementById("status");
 
-  const SNAP_DISTANCE = 35; // más fácil con mapa real
+  const SNAP_DISTANCE = 35;
   const placed = new Set();
 
-  // --- 1) Cargar SVG real ---
-  let svgText = "";
-  try {
+  /* === CARGA SVG === */
+  let svgText="";
+  try{
     const res = await fetch("./spain-provinces.svg");
-    if (!res.ok) throw new Error("No encontrado");
+    if(!res.ok) throw "";
     svgText = await res.text();
-  } catch (e) {
-    LOADING?.remove();
-    STAGE.innerHTML = `
-      <div style="padding:12px">
-        <div class="bad">No puedo cargar <code>spain-provinces.svg</code></div>
-        <div class="hint">Asegúrate de que el archivo existe en el repo y se llama EXACTAMENTE así (sin .png y sin doble .svg).</div>
-      </div>`;
+  }catch{
+    STAGE.innerHTML = "<div class='bad'>No se encuentra spain-provinces.svg</div>";
     return;
   }
-
   LOADING?.remove();
   STAGE.insertAdjacentHTML("beforeend", svgText);
 
   const svg = STAGE.querySelector("svg");
-  if(!svg) {
-    STAGE.innerHTML = "<div style='padding:12px' class='bad'>El archivo no contiene un &lt;svg&gt; válido.</div>";
+  if(!svg){
+    STAGE.innerHTML="<div class='bad'>SVG inválido</div>";
     return;
   }
 
-  // Asegurar viewBox para cálculos correctos
-  if(!svg.getAttribute("viewBox")) {
-    const w = svg.getAttribute("width") || 1000;
-    const h = svg.getAttribute("height") || 1000;
-    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  /* === LIMPIEZA DEL SVG === */
+  svg.querySelectorAll("text").forEach(t=>t.remove());
+  svg.querySelectorAll('[class*="label"],[id*="label"]').forEach(e=>e.remove());
+
+  if(!svg.getAttribute("viewBox")){
+    const w=svg.getAttribute("width")||1000;
+    const h=svg.getAttribute("height")||1000;
+    svg.setAttribute("viewBox",`0 0 ${w} ${h}`);
   }
 
-  // --- 2) Detectar provincias (FILTRADO SOLO ES-XX) ---
-  // Preferimos <g id="ES-XX">; si no hay, probamos <path id="ES-XX">
-  let provinceEls = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
-  if (provinceEls.length === 0) {
-    provinceEls = Array.from(svg.querySelectorAll('path[id^="ES-"]'));
-  }
+  /* === DETECTAR PROVINCIAS ES-XX === */
+  let provinceEls=[...svg.querySelectorAll('g[id^="ES-"]')];
+  if(!provinceEls.length)
+    provinceEls=[...svg.querySelectorAll('path[id^="ES-"]')];
 
-  // Convertimos id -> data-province
-  provinceEls.forEach(el => el.setAttribute("data-province", el.id));
-
-  if(provinceEls.length === 0) {
-    STAGE.insertAdjacentHTML("beforeend",
-      "<div style='padding:12px' class='bad'>No encuentro provincias con IDs tipo <b>ES-XX</b> en tu SVG.</div>"
-    );
-    STATUS.innerHTML = `Estado: <span class="bad">SVG sin IDs ES-XX</span>`;
+  provinceEls.forEach(p=>p.setAttribute("data-province",p.id));
+  if(!provinceEls.length){
+    STATUS.innerHTML="<span class='bad'>No se detectan provincias ES-XX</span>";
     return;
   }
+  STATUS.innerHTML=`<span class="ok">Provincias detectadas: ${provinceEls.length}</span>`;
 
-  STATUS.innerHTML = `Estado: <span class="ok">SVG cargado</span> · Provincias detectadas: <b>${provinceEls.length}</b>`;
+  /* === TABLERO === */
+  const board=document.createElementNS("http://www.w3.org/2000/svg","g");
+  const pieces=document.createElementNS("http://www.w3.org/2000/svg","g");
+  svg.innerHTML="";
+  svg.append(board,pieces);
 
-  // --- 3) Construir tablero (slots) y piezas (movibles) ---
-  const board = document.createElementNS("http://www.w3.org/2000/svg","g");
-  board.setAttribute("id","board");
-  const pieces = document.createElementNS("http://www.w3.org/2000/svg","g");
-  pieces.setAttribute("id","pieces");
+  const provinces=[];
+  for(const o of provinceEls){
+    const p=o.getAttribute("data-province");
+    const s=o.cloneNode(true);
+    s.removeAttribute("id");
+    s.setAttribute("class","slot");
+    s.setAttribute("data-province",p);
+    board.appendChild(s);
 
-  // Limpiamos el SVG y reconstruimos solo con board+pieces
-  svg.innerHTML = "";
-  svg.appendChild(board);
-  svg.appendChild(pieces);
+    const pc=o.cloneNode(true);
+    pc.removeAttribute("id");
+    pc.setAttribute("class","piece");
+    pc.setAttribute("data-province",p);
+    pieces.appendChild(pc);
 
-  const provinces = [];
-  for (const original of provinceEls) {
-    const prov = original.getAttribute("data-province");
-    if(!prov) continue;
-
-    const slot = original.cloneNode(true);
-    slot.removeAttribute("id");
-    slot.setAttribute("class","slot");
-    slot.setAttribute("data-province", prov);
-    board.appendChild(slot);
-
-    const piece = original.cloneNode(true);
-    piece.removeAttribute("id");
-    piece.setAttribute("class","piece");
-    piece.setAttribute("data-province", prov);
-    pieces.appendChild(piece);
-
-    provinces.push(prov);
+    provinces.push(p);
   }
 
-  // Progreso
-  TOTAL.textContent = String(provinces.length);
-  PROG.textContent = "0";
+  TOTAL.textContent=provinces.length;
+  PROG.textContent=0;
 
-  // Chips (lista)
-  CHIPS.innerHTML = "";
+  CHIPS.innerHTML="";
   provinces.forEach(p=>{
-    const chip = document.createElement("div");
-    chip.className = "chip";
-    chip.textContent = p;
-    CHIPS.appendChild(chip);
+    const c=document.createElement("div");
+    c.className="chip";
+    c.textContent=p;
+    CHIPS.appendChild(c);
   });
 
-  // --- 4) Ordenar piezas en rejilla a la izquierda (mejor que apilar) ---
-  function shufflePieces(){
-    const els = Array.from(pieces.querySelectorAll(".piece"))
-      .filter(el => !el.classList.contains("placed"));
-
-    const cols = 2;                 // 2 columnas
-    const gapX = 120, gapY = 80;    // separación
-    const startX = 20;
-    const startY = 20;
-
-    els.forEach((el, i) => {
-      const b = el.getBBox();
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-
-      const targetX = startX + col * gapX;
-      const targetY = startY + row * gapY;
-
-      // Coloca la caja de la provincia en esa celda (sin deformar la forma)
-      const x = targetX - b.x;
-      const y = targetY - b.y;
-
-      el.setAttribute("transform", `translate(${x}, ${y})`);
+  /* === ORDENAR PIEZAS === */
+  function shuffle(){
+    const els=[...pieces.querySelectorAll(".piece")].filter(e=>!e.classList.contains("placed"));
+    const cols=2,gx=120,gy=80,sx=20,sy=20;
+    els.forEach((el,i)=>{
+      const b=el.getBBox();
+      const x=sx+(i%cols)*gx-b.x;
+      const y=sy+Math.floor(i/cols)*gy-b.y;
+      el.setAttribute("transform",`translate(${x},${y})`);
     });
   }
-  shufflePieces();
+  shuffle();
 
-  // --- 5) Drag & snap ---
-  let active = null;
-  let startPt = null;
-  let startTranslate = {x:0,y:0};
-
-  function svgPoint(evt){
-    const p = svg.createSVGPoint();
-    p.x = evt.clientX; p.y = evt.clientY;
+  /* === DRAG & SNAP === */
+  let act=null,pt=null,tr={x:0,y:0};
+  const sp=e=>{
+    const p=svg.createSVGPoint();
+    p.x=e.clientX;p.y=e.clientY;
     return p.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function parseTranslate(el){
-    const t = el.getAttribute("transform") || "translate(0,0)";
-    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
-    return {x: m?parseFloat(m[1]):0, y: m?parseFloat(m[2]):0};
-  }
-
-  function setTranslate(el,x,y){
-    el.setAttribute("transform", `translate(${x}, ${y})`);
-  }
-
-  function centerOf(el){
-    const b = el.getBBox();
-    return {x: b.x + b.width/2, y: b.y + b.height/2, box: b};
-  }
-
-  function trySnap(piece){
-    const prov = piece.getAttribute("data-province");
-    const slot = board.querySelector(`.slot[data-province="${prov}"]`);
-    if(!slot) return false;
-
-    const pc = centerOf(piece);
-    const sc = centerOf(slot);
-
-    const dist = Math.hypot(pc.x - sc.x, pc.y - sc.y);
-    if(dist > SNAP_DISTANCE) return false;
-
-    // Alinear caja de pieza con caja del slot
-    const dx = sc.box.x - pc.box.x;
-    const dy = sc.box.y - pc.box.y;
-    setTranslate(piece, dx, dy);
-
-    piece.classList.add("placed");
-    placed.add(prov);
-
-    PROG.textContent = String(placed.size);
-    if(placed.size === provinces.length) alert("¡Mapa completado! 🎉");
+  };
+  const gt=e=>{
+    const m=/translate\(([-\d.]+),([-\d.]+)\)/.exec(e.getAttribute("transform")||"");
+    return m?{x:+m[1],y:+m[2]}:{x:0,y:0};
+  };
+  const st=(e,x,y)=>e.setAttribute("transform",`translate(${x},${y})`);
+  const ctr=e=>{
+    const b=e.getBBox();
+    return {x:b.x+b.width/2,y:b.y+b.height/2,box:b};
+  };
+  const snap=e=>{
+    const id=e.getAttribute("data-province");
+    const s=board.querySelector(`.slot[data-province="${id}"]`);
+    const a=ctr(e),b=ctr(s);
+    if(Math.hypot(a.x-b.x,a.y-b.y)>SNAP_DISTANCE)return false;
+    st(e,b.box.x-a.box.x,b.box.y-a.box.y);
+    e.classList.add("placed");
+    placed.add(id);
+    PROG.textContent=placed.size;
+    if(placed.size===provinces.length)alert("¡Mapa completado!");
     return true;
-  }
+  };
 
-  svg.addEventListener("pointerdown", (e) => {
-    const target = e.target.closest?.(".piece");
-    if(!target || target.classList.contains("placed")) return;
-
-    active = target;
-    active.classList.add("dragging");
-    pieces.appendChild(active); // al frente
-
-    startPt = svgPoint(e);
-    startTranslate = parseTranslate(active);
-    active.setPointerCapture?.(e.pointerId);
+  svg.addEventListener("pointerdown",e=>{
+    const t=e.target.closest(".piece");
+    if(!t||t.classList.contains("placed"))return;
+    act=t;act.classList.add("dragging");
+    pieces.appendChild(act);
+    pt=sp(e);tr=gt(act);
+  });
+  window.addEventListener("pointermove",e=>{
+    if(!act)return;
+    const p=sp(e);
+    st(act,tr.x+p.x-pt.x,tr.y+p.y-pt.y);
+  });
+  window.addEventListener("pointerup",()=>{
+    if(!act)return;
+    act.classList.remove("dragging");
+    if(!snap(act))shuffle();
+    act=null;
   });
 
-  window.addEventListener("pointermove", (e) => {
-    if(!active) return;
-    const p = svgPoint(e);
-    const dx = p.x - startPt.x;
-    const dy = p.y - startPt.y;
-    setTranslate(active, startTranslate.x + dx, startTranslate.y + dy);
-  });
-
-  window.addEventListener("pointerup", () => {
-    if(!active) return;
-    active.classList.remove("dragging");
-
-    const snapped = trySnap(active);
-    if(!snapped){
-      // si no encaja, vuelve a la rejilla (reordenamos todas las no colocadas)
-      active.setAttribute("transform","translate(0,0)");
-      shufflePieces();
-    }
-
-    active = null;
-  });
-
-  // Botones
-  document.getElementById("shuffle").onclick = shufflePieces;
-  document.getElementById("reset").onclick = () => {
-    placed.clear();
-    PROG.textContent = "0";
+  document.getElementById("shuffle").onclick=shuffle;
+  document.getElementById("reset").onclick=()=>{
+    placed.clear();PROG.textContent=0;
     pieces.querySelectorAll(".piece").forEach(p=>{
       p.classList.remove("placed");
       p.setAttribute("transform","translate(0,0)");
     });
-    shufflePieces();
+    shuffle();
   };
 })();
 </script>
