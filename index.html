@@ -370,10 +370,10 @@ function colorProvince(cc, provKey){
       const chip = document.createElement("div");
       chip.className = "chip";
     const base = colorCommunity(p.cc);
+const base = colorCommunity(p.cc);
 chip.style.borderColor = `hsl(${base.hue} 80% 70%)`;
 chip.style.background  = `hsl(${base.hue} 90% 96%)`;
-chip.style.boxShadow   = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
-
+chip.style.boxShadow = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
       chip.dataset.key = p.key;
       if(placed.has(p.key)) chip.classList.add("done");
       chip.onclick = (ev)=> spawnPiece(p, ev);
