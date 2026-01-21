@@ -3,118 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>España — Puzzle por Comunidades y Provincias</title>
-
+  <title>España — Puzzle por Comunidades (Provincias)</title>
   <style>
     body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif}
-    .wrap{width:min(1320px,96vw);margin:0 auto;padding:16px}
+    .wrap{width:min(1400px,96vw);margin:0 auto;padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:900}
-    button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:900}
+    button{border:0;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:900}
     .btn1{background:#f97316;color:#fff}
     .btn2{background:#ef4444;color:#fff}
     .btn3{background:#10b981;color:#fff}
     .btn4{background:#6366f1;color:#fff}
+    .btn5{background:#111827;color:#fff}
 
-    .grid{display:grid;grid-template-columns: 1fr 360px; gap:14px; margin-top:14px}
-    @media (max-width: 980px){ .grid{grid-template-columns:1fr} }
+    .grid{display:grid;grid-template-columns: 1fr 420px; gap:14px; margin-top:14px}
+    @media (max-width: 1050px){ .grid{grid-template-columns:1fr} }
 
     .card{background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);padding:12px}
-    #stage{width:100%;height:min(80vh,860px);border-radius:16px;overflow:hidden}
+    #stage{height:min(82vh,920px);border-radius:16px;overflow:hidden;position:relative}
     #stage svg{width:100%;height:100%;display:block;background:#fff}
-
-    .tray{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:60vh;overflow:auto;padding-right:6px}
-    .pieceBox{
-      border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;
-      padding:8px;display:flex;flex-direction:column;gap:8px;
-      user-select:none;
-      touch-action:none;
-    }
-    .pieceName{font-weight:900;font-size:12px;color:#0b1220}
-    .mini{height:90px;border-radius:12px;background:#fff;overflow:hidden;border:1px solid #e5e7eb}
-    .mini svg{width:100%;height:100%;display:block}
 
     .hint{color:#374151;margin-top:10px;line-height:1.4}
     .ok{color:#16a34a;font-weight:900}
     .bad{color:#dc2626;font-weight:900}
     code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
 
-    .slot{
+    .list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:62vh;overflow:auto;padding-right:6px}
+    .chip{
+      border:1px solid #bfdbfe;background:#eff6ff;border-radius:999px;
+      padding:8px 10px;font-size:12px;font-weight:900;
+      cursor:pointer; user-select:none;
+    }
+    .chip.done{opacity:.55;text-decoration:line-through}
+
+    .tooltip{
+      position:absolute; pointer-events:none;
+      background:rgba(17,24,39,.92); color:#fff;
+      padding:8px 10px; border-radius:10px;
+      font-weight:900; font-size:12px;
+      display:none; z-index:10;
+      transform:translate(10px,10px);
+      max-width:260px;
+    }
+
+    /* MAPA */
+    .prov-base{
+      stroke:#fff; stroke-width:1; vector-effect:non-scaling-stroke;
+      opacity:.30;
+    }
+    .prov-slot{
       fill:none;
-      stroke:#111827;
-      stroke-width:1.2;
+      stroke:#111827; stroke-width:1.2; vector-effect:non-scaling-stroke;
       stroke-dasharray:7 6;
-      vector-effect: non-scaling-stroke;
       pointer-events:none;
-      opacity:.8;
+      opacity:.9;
     }
-    .slot.hint{
-      stroke:#f59e0b !important;
-      stroke-width:2.2 !important;
-      stroke-dasharray:0 !important;
-      opacity:1 !important;
+    .prov-slot.hint{
+      stroke:#f59e0b; stroke-width:2.8; stroke-dasharray:0;
+      opacity:1;
     }
-
-    .prov-label{
-      font-size:10px;
-      font-weight:800;
-      fill:#0b1220;
-      paint-order: stroke;
-      stroke:#ffffff;
-      stroke-width:3px;
-      stroke-linejoin:round;
-      pointer-events:none;
-      user-select:none;
-    }
-    .cc-label{
-      font-size:18px;
-      font-weight:900;
-      fill:#111827;
-      opacity:.88;
-      paint-order: stroke;
-      stroke:#ffffff;
-      stroke-width:4px;
-      stroke-linejoin:round;
-      pointer-events:none;
-      user-select:none;
-    }
-
-    .placedGlow{
+    .piece{
+      stroke:#111827; stroke-width:1.1; vector-effect:non-scaling-stroke;
       filter: drop-shadow(0 2px 6px rgba(0,0,0,.18));
+      cursor:grab; touch-action:none;
+    }
+    .piece.dragging{cursor:grabbing; opacity:.92}
+
+    .label-prov{
+      font-size:10px; font-weight:800; fill:#0b1220;
+      paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round;
+      pointer-events:none; user-select:none;
+    }
+    .label-cc{
+      font-size:18px; font-weight:900; fill:#111827; opacity:.88;
+      paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round;
+      pointer-events:none; user-select:none;
     }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <header>
       <div class="pill">Comunidad: <span id="zone">—</span></div>
       <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
-
       <button class="btn1" id="shuffle">Mezclar bandeja</button>
       <button class="btn4" id="hintBtn">Pista</button>
+      <button class="btn5" id="toggleLabels">Nombres: ON</button>
       <button class="btn2" id="reset">Reiniciar comunidad</button>
       <button class="btn3" id="next">Siguiente</button>
     </header>
 
     <div class="grid">
       <div class="card" id="stage">
-        <div id="loading" class="hint">Cargando mapa real…</div>
+        <div id="tip" class="tooltip"></div>
+        <div id="loading" class="hint">Cargando mapa real (GeoJSON)…</div>
       </div>
 
       <div class="card">
-        <b>Piezas disponibles (modo libre)</b>
+        <b>Piezas disponibles (clic → arrastrar)</b>
         <div id="status" class="hint"></div>
-
-        <div class="tray" id="tray"></div>
-
         <div class="hint">
-          Arrastra cualquier provincia de la comunidad y suéltala cerca de su hueco para encajar.<br>
-          La <b>Pista</b> resalta una provincia pendiente al azar.
+          Haz click en una provincia para “sacarla” como pieza y arrástrala al mapa.
+          Encaja sola si cae cerca del hueco.
+        </div>
+        <div class="list" id="chips"></div>
+        <div class="hint">
+          Archivos requeridos en el repo:
+          <br>— <code>index.html</code>
+          <br>— <code>espana-provincias.json</code>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- D3 (solo para dibujar/zoom/cálculos geométricos) -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <script>
 (async function(){
@@ -124,14 +127,16 @@
   const PROG   = document.getElementById("prog");
   const TOTAL  = document.getElementById("total");
   const STATUS = document.getElementById("status");
-  const TRAY = document.getElementById("tray");
+  const CHIPS  = document.getElementById("chips");
+  const TIP    = document.getElementById("tip");
 
   const BTN_SHUFFLE = document.getElementById("shuffle");
   const BTN_RESET   = document.getElementById("reset");
   const BTN_NEXT    = document.getElementById("next");
   const BTN_HINT    = document.getElementById("hintBtn");
+  const BTN_LABELS  = document.getElementById("toggleLabels");
 
-  const SNAP_DISTANCE = 35;
+  const SNAP_DISTANCE = 40;
 
   const norm = (s) => (s||"")
     .toLowerCase()
@@ -139,32 +144,14 @@
     .replace(/\s+/g," ")
     .trim();
 
-  function colorFor(code){
+  function colorFor(key){
     let h = 0;
-    for (let i=0;i<code.length;i++) h = (h*31 + code.charCodeAt(i)) >>> 0;
+    for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
     const hue = h % 360;
     return `hsl(${hue} 70% 60%)`;
   }
 
-  const CODE_TO_NAME = {
-    "ES-C":"A Coruña","ES-LU":"Lugo","ES-OR":"Ourense","ES-PO":"Pontevedra",
-    "ES-O":"Asturias","ES-S":"Cantabria",
-    "ES-BI":"Bizkaia","ES-SS":"Gipuzkoa","ES-VI":"Álava",
-    "ES-NA":"Navarra","ES-RI":"La Rioja",
-    "ES-HU":"Huesca","ES-TE":"Teruel","ES-Z":"Zaragoza",
-    "ES-B":"Barcelona","ES-GI":"Girona","ES-L":"Lleida","ES-T":"Tarragona",
-    "ES-LE":"León","ES-ZA":"Zamora","ES-SA":"Salamanca","ES-AV":"Ávila","ES-SG":"Segovia","ES-VA":"Valladolid","ES-BU":"Burgos","ES-SO":"Soria","ES-P":"Palencia",
-    "ES-CU":"Cuenca","ES-GU":"Guadalajara","ES-TO":"Toledo","ES-CR":"Ciudad Real","ES-AB":"Albacete",
-    "ES-CC":"Cáceres","ES-BA":"Badajoz",
-    "ES-M":"Madrid",
-    "ES-CS":"Castellón","ES-V":"Valencia","ES-A":"Alicante",
-    "ES-MU":"Murcia",
-    "ES-AL":"Almería","ES-CA":"Cádiz","ES-CO":"Córdoba","ES-GR":"Granada","ES-H":"Huelva","ES-J":"Jaén","ES-MA":"Málaga","ES-SE":"Sevilla",
-    "ES-IB":"Illes Balears",
-    "ES-GC":"Las Palmas","ES-TF":"Santa Cruz de Tenerife",
-    "ES-CE":"Ceuta","ES-ML":"Melilla"
-  };
-
+  // Mapa provincia -> comunidad (por nombre normalizado)
   const PROV_TO_CC = new Map([
     ["a coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["pontevedra","Galicia"],
     ["asturias","Principado de Asturias"],["cantabria","Cantabria"],
@@ -192,347 +179,386 @@
     "Illes Balears","Canarias","Ceuta","Melilla"
   ];
 
-  function getNameFromSvg(el){
-    const t = el.querySelector?.("title")?.textContent?.trim();
-    if(t) return t;
-    const aria = el.getAttribute?.("aria-label")?.trim();
-    if(aria) return aria;
-    const label = el.getAttribute?.("inkscape:label")?.trim();
-    if(label) return label;
-    return "";
+  // Obtener nombre “robusto” de un feature (depende del GeoJSON)
+  function getProvName(props){
+    const keys = ["name","nombre","provincia","province","NAME","NOMBRE","PROV","prov_name","texto"];
+    for(const k of keys){
+      if(props && props[k] && String(props[k]).trim()) return String(props[k]).trim();
+    }
+    // fallback: intenta la primera propiedad string que parezca nombre
+    if(props){
+      for(const [k,v] of Object.entries(props)){
+        if(typeof v === "string" && v.length <= 40 && v.length >= 3) return v.trim();
+      }
+    }
+    return "Provincia";
   }
 
-  // ===== Cargar SVG =====
-  let svgText="";
+  // Clave estable para provincia (sirve para color y tracking)
+  function provKey(feature){
+    return feature.id || feature.properties?.id || feature.properties?.code || feature.properties?.codigo || getProvName(feature.properties);
+  }
+
+  // ---- cargar GeoJSON local (repo) ----
+  let geo;
   try{
-    const res = await fetch("./spain-provinces.svg");
-    if(!res.ok) throw "";
-    svgText = await res.text();
-  }catch{
+    const res = await fetch("./espana-provincias.json");
+    if(!res.ok) throw new Error("no ok");
+    geo = await res.json();
+  }catch(e){
     LOADING?.remove();
-    STAGE.innerHTML = `<div class="bad">No puedo cargar <code>spain-provinces.svg</code></div>`;
+    STAGE.innerHTML = `<div class="bad">No puedo cargar <code>espana-provincias.json</code></div>
+      <div class="hint">Crea ese archivo en tu repo (Add file → Create new file) y pega dentro el GeoJSON.</div>`;
     return;
   }
 
   LOADING?.remove();
-  STAGE.insertAdjacentHTML("beforeend", svgText);
 
-  const svg = STAGE.querySelector("svg");
-  if(!svg){ STAGE.innerHTML="<div class='bad'>SVG inválido</div>"; return; }
+  // normalizar colección
+  const features = (geo.type === "FeatureCollection") ? geo.features
+                 : (geo.type === "Feature") ? [geo]
+                 : (Array.isArray(geo)) ? geo
+                 : [];
 
-  // eliminar textos del svg original
-  svg.querySelectorAll("text").forEach(t => t.remove());
-  svg.querySelectorAll('[class*="label"],[id*="label"]').forEach(el => el.remove());
+  if(!features.length){
+    STAGE.innerHTML = `<div class="bad">GeoJSON sin features</div>`;
+    return;
+  }
 
-  // Detectar provincias ES-XX
-  let raw = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
-  if(!raw.length) raw = Array.from(svg.querySelectorAll('path[id^="ES-"]'));
-  if(!raw.length){ STATUS.innerHTML=`<span class="bad">No encuentro ids ES-XX</span>`; return; }
-
-  const catalog = raw.map(el => {
-    const code = el.id;
-    const name = getNameFromSvg(el) || CODE_TO_NAME[code] || code;
+  // Catalogo provincias -> comunidad
+  const catalog = features.map(f => {
+    const name = getProvName(f.properties || {});
     const cc = PROV_TO_CC.get(norm(name)) || "OTRAS";
-    return { code, name, cc, node: el };
-  }).filter(p => p.cc !== "OTRAS");
+    return { feature:f, name, cc, key: String(provKey(f)) };
+  }).filter(x => x.cc !== "OTRAS");
 
   STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
 
-  // Capas
-  const baseMap   = document.createElementNS("http://www.w3.org/2000/svg","g");
-  const slotsLayer= document.createElementNS("http://www.w3.org/2000/svg","g");
-  const placedLayer= document.createElementNS("http://www.w3.org/2000/svg","g");
-  const provLabels= document.createElementNS("http://www.w3.org/2000/svg","g");
-  const ccLabels  = document.createElementNS("http://www.w3.org/2000/svg","g");
+  // ---- SVG + capas ----
+  const svg = d3.select("#stage").append("svg");
+  const gRoot   = svg.append("g");
+  const gBase   = gRoot.append("g").attr("id","base");
+  const gSlots  = gRoot.append("g").attr("id","slots");
+  const gPlaced = gRoot.append("g").attr("id","placed");
+  const gPieces = gRoot.append("g").attr("id","pieces");
+  const gLabProv= gRoot.append("g").attr("id","labelsProv");
+  const gLabCC  = gRoot.append("g").attr("id","labelsCC");
 
-  svg.innerHTML = "";
-  svg.append(baseMap, slotsLayer, placedLayer, provLabels, ccLabels);
+  // tooltip
+  function showTip(text, ev){
+    TIP.style.display = "block";
+    TIP.textContent = text;
+    const r = STAGE.getBoundingClientRect();
+    TIP.style.left = (ev.clientX - r.left) + "px";
+    TIP.style.top  = (ev.clientY - r.top) + "px";
+  }
+  function hideTip(){ TIP.style.display = "none"; }
 
-  // Base mapa coloreado
-  const baseByCode = new Map();
-  for(const p of catalog){
-    const shape = p.node.cloneNode(true);
-    shape.removeAttribute("id");
-    shape.setAttribute("data-province", p.code);
-    shape.setAttribute("fill", colorFor(p.code));
-    shape.setAttribute("opacity", "0.35");
-    shape.setAttribute("stroke", "#ffffff");
-    shape.setAttribute("stroke-width", "1");
-    shape.setAttribute("vector-effect","non-scaling-stroke");
-    baseMap.appendChild(shape);
-    baseByCode.set(p.code, shape);
+  // Fit a pantalla (mapa entero)
+  function fitProjection(){
+    const w = document.getElementById("stage").clientWidth;
+    const h = document.getElementById("stage").clientHeight;
+    svg.attr("viewBox", `0 0 ${w} ${h}`);
+
+    const projection = d3.geoMercator();
+    projection.fitSize([w,h], {type:"FeatureCollection", features: catalog.map(d=>d.feature)});
+    const path = d3.geoPath(projection);
+    return {w,h,projection,path};
   }
 
-  // Helpers bbox labels
-  await new Promise(requestAnimationFrame);
+  let {w,h,projection,path} = fitProjection();
 
-  function buildProvinceLabels(){
-    provLabels.innerHTML = "";
-    for(const p of catalog){
-      const base = baseByCode.get(p.code);
-      if(!base) continue;
-      const b = base.getBBox();
-      const t = document.createElementNS("http://www.w3.org/2000/svg","text");
-      t.setAttribute("class","prov-label");
-      t.setAttribute("x", b.x + b.width/2);
-      t.setAttribute("y", b.y + b.height/2);
-      t.setAttribute("text-anchor","middle");
-      t.setAttribute("dominant-baseline","middle");
-      t.textContent = p.name;
-      provLabels.appendChild(t);
-    }
+  // zoom/pan
+  const zoom = d3.zoom()
+    .scaleExtent([1, 12])
+    .on("zoom", (ev) => gRoot.attr("transform", ev.transform));
+  svg.call(zoom).call(zoom.transform, d3.zoomIdentity); // start fit
+
+  window.addEventListener("resize", () => {
+    ({w,h,projection,path} = fitProjection());
+    drawBase(); // recalcula paths
+    renderLevel(); // reconstruye slots/labels/pieces para mantener consistencia
+  });
+
+  // Base map coloreado por provincia
+  function drawBase(){
+    const sel = gBase.selectAll("path").data(catalog, d=>d.key);
+    sel.join(
+      enter => enter.append("path")
+        .attr("class","prov-base")
+        .attr("data-key", d=>d.key)
+        .attr("fill", d=>colorFor(d.key))
+        .attr("d", d=>path(d.feature))
+        .on("mousemove", (ev, d)=> showTip(d.name, ev))
+        .on("mouseleave", hideTip),
+      update => update.attr("d", d=>path(d.feature)),
+      exit => exit.remove()
+    );
   }
+  drawBase();
 
-  function buildCCLabels(){
-    ccLabels.innerHTML = "";
-    const byCC = new Map();
-    for(const p of catalog){
-      if(!byCC.has(p.cc)) byCC.set(p.cc, []);
-      byCC.get(p.cc).push(p);
-    }
-    for(const [ccName, arr] of byCC.entries()){
-      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-      for(const p of arr){
-        const base = baseByCode.get(p.code);
-        if(!base) continue;
-        const b = base.getBBox();
-        minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
-        maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
-      }
-      if(!isFinite(minX)) continue;
-      const t = document.createElementNS("http://www.w3.org/2000/svg","text");
-      t.setAttribute("class","cc-label");
-      t.setAttribute("x",(minX+maxX)/2);
-      t.setAttribute("y",(minY+maxY)/2);
-      t.setAttribute("text-anchor","middle");
-      t.setAttribute("dominant-baseline","middle");
-      t.textContent = ccName;
-      ccLabels.appendChild(t);
-    }
-  }
-
-  buildProvinceLabels();
-  buildCCLabels();
-
-  // ===== Juego =====
+  // ---- Juego por comunidades ----
   let levelIndex = 0;
-  let placed = new Set();
   let activeList = [];
+  let placed = new Set();
+  let labelsOn = true;
 
-  let pieceElByCode = new Map();
-  let slotElByCode = new Map();
-
-  function clearHints(){
-    slotsLayer.querySelectorAll(".slot.hint").forEach(s => s.classList.remove("hint"));
+  function clearHint(){
+    gSlots.selectAll(".prov-slot").classed("hint", false);
   }
 
-  function randomPendingCode(){
-    const pending = activeList.filter(p => !placed.has(p.code));
+  function randomPending(){
+    const pending = activeList.filter(p=>!placed.has(p.key));
     if(!pending.length) return null;
-    return pending[Math.floor(Math.random()*pending.length)].code;
+    return pending[Math.floor(Math.random()*pending.length)];
+  }
+
+  function buildLabels(){
+    gLabProv.selectAll("*").remove();
+    gLabCC.selectAll("*").remove();
+    if(!labelsOn) return;
+
+    // Provincias: solo comunidad actual (para no llenar todo)
+    const provLabels = gLabProv.selectAll("text")
+      .data(activeList, d=>d.key)
+      .join("text")
+      .attr("class","label-prov")
+      .attr("text-anchor","middle")
+      .attr("dominant-baseline","middle")
+      .text(d=>d.name)
+      .attr("x", d=>path.centroid(d.feature)[0])
+      .attr("y", d=>path.centroid(d.feature)[1]);
+
+    // Comunidad (una etiqueta grande centrada en el bounding box de su conjunto)
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of activeList){
+      const b = path.bounds(p.feature);
+      minX = Math.min(minX, b[0][0]); minY = Math.min(minY, b[0][1]);
+      maxX = Math.max(maxX, b[1][0]); maxY = Math.max(maxY, b[1][1]);
+    }
+    const ccName = LEVELS[levelIndex];
+    gLabCC.append("text")
+      .attr("class","label-cc")
+      .attr("text-anchor","middle")
+      .attr("dominant-baseline","middle")
+      .attr("x", (minX+maxX)/2)
+      .attr("y", (minY+maxY)/2)
+      .text(ccName);
+  }
+
+  function renderChips(){
+    CHIPS.innerHTML = "";
+    for(const p of activeList){
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.textContent = p.name;
+      chip.dataset.key = p.key;
+      if(placed.has(p.key)) chip.classList.add("done");
+      chip.onclick = (ev)=> spawnPiece(p, ev);
+      CHIPS.appendChild(chip);
+    }
+  }
+
+  function renderSlots(){
+    const sel = gSlots.selectAll("path").data(activeList, d=>d.key);
+    sel.join(
+      enter => enter.append("path")
+        .attr("class","prov-slot")
+        .attr("data-key", d=>d.key)
+        .attr("d", d=>path(d.feature)),
+      update => update.attr("d", d=>path(d.feature)),
+      exit => exit.remove()
+    );
+  }
+
+  function resetOpacityForLevel(){
+    // baja opacidad base de la comunidad actual al iniciar
+    gBase.selectAll("path").each(function(d){
+      const el = d3.select(this);
+      if(d.cc === LEVELS[levelIndex]) el.style("opacity", 0.18);
+      else el.style("opacity", 0.30);
+    });
   }
 
   function renderLevel(){
     placed = new Set();
-    activeList = [];
-    pieceElByCode.clear();
-    slotElByCode.clear();
-
-    slotsLayer.innerHTML = "";
-    placedLayer.innerHTML = "";
-    TRAY.innerHTML = "";
-    clearHints();
+    gPlaced.selectAll("*").remove();
+    gPieces.selectAll("*").remove();
+    clearHint();
 
     const cc = LEVELS[levelIndex];
     ZONE.textContent = cc;
 
-    activeList = catalog.filter(p => p.cc === cc);
+    activeList = catalog.filter(p=>p.cc === cc);
+
     TOTAL.textContent = String(activeList.length);
     PROG.textContent = "0";
 
-    for(const p of activeList){
-      const slot = p.node.cloneNode(true);
-      slot.removeAttribute("id");
-      slot.setAttribute("class","slot");
-      slot.setAttribute("data-province", p.code);
-      slotsLayer.appendChild(slot);
-      slotElByCode.set(p.code, slot);
-
-      const box = document.createElement("div");
-      box.className="pieceBox";
-      box.setAttribute("data-code", p.code);
-
-      const name = document.createElement("div");
-      name.className="pieceName";
-      name.textContent = p.name;
-      box.appendChild(name);
-
-      const mini = document.createElement("div");
-      mini.className="mini";
-      mini.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"></svg>`;
-      const miniSvg = mini.querySelector("svg");
-
-      const piece = p.node.cloneNode(true);
-      piece.removeAttribute("id");
-      piece.setAttribute("data-province", p.code);
-      piece.setAttribute("fill", colorFor(p.code));
-      piece.setAttribute("stroke", "#111827");
-      piece.setAttribute("stroke-width", "1");
-      piece.setAttribute("vector-effect","non-scaling-stroke");
-      piece.classList.add("placedGlow");
-      miniSvg.appendChild(piece);
-
-      const b = piece.getBBox();
-      const m = Math.max(b.width,b.height)*0.15;
-      miniSvg.setAttribute("viewBox", `${b.x-m} ${b.y-m} ${b.width+2*m} ${b.height+2*m}`);
-      miniSvg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-
-      box.appendChild(mini);
-      TRAY.appendChild(box);
-
-      box.addEventListener("pointerdown", (ev) => {
-        ev.preventDefault();
-        if(placed.has(p.code)) return;
-        startDragFromTray(p.code, ev);
-      });
-    }
+    renderSlots();
+    renderChips();
+    buildLabels();
+    resetOpacityForLevel();
   }
-
-  // Dragging pieza en SVG principal
-  let dragging = null;
-  let draggingCode = null;
-  let startPt = null;
-  let startTr = {x:0,y:0};
-
-  const svgPoint = (evt) => {
-    const p = svg.createSVGPoint();
-    p.x = evt.clientX; p.y = evt.clientY;
-    return p.matrixTransform(svg.getScreenCTM().inverse());
-  };
-  const parseTranslate = (el) => {
-    const t = el.getAttribute("transform") || "translate(0,0)";
-    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
-    return { x: m?+m[1]:0, y: m?+m[2]:0 };
-  };
-  const setTranslate = (el,x,y) => el.setAttribute("transform", `translate(${x},${y})`);
-  const centerOf = (el) => {
-    const b = el.getBBox();
-    return { x: b.x + b.width/2, y: b.y + b.height/2, box: b };
-  };
-
-  function startDragFromTray(code, ev){
-    let piece = pieceElByCode.get(code);
-    if(!piece){
-      const p = activeList.find(x=>x.code===code);
-      piece = p.node.cloneNode(true);
-      piece.removeAttribute("id");
-      piece.setAttribute("data-province", code);
-      piece.setAttribute("fill", colorFor(code));
-      piece.setAttribute("stroke","#111827");
-      piece.setAttribute("stroke-width","1.1");
-      piece.setAttribute("vector-effect","non-scaling-stroke");
-      piece.classList.add("placedGlow");
-      svg.appendChild(piece);
-      pieceElByCode.set(code, piece);
-
-      const sp = svgPoint(ev);
-      const b = piece.getBBox();
-      setTranslate(piece, sp.x - (b.x + b.width/2), sp.y - (b.y + b.height/2));
-    }
-
-    dragging = piece;
-    draggingCode = code;
-    startPt = svgPoint(ev);
-    startTr = parseTranslate(dragging);
-    dragging.setPointerCapture?.(ev.pointerId);
-  }
-
-  function trySnap(piece, code){
-    const slot = slotElByCode.get(code);
-    if(!slot) return false;
-
-    const pc = centerOf(piece);
-    const sc = centerOf(slot);
-    const dist = Math.hypot(pc.x - sc.x, pc.y - sc.y);
-    if(dist > SNAP_DISTANCE) return false;
-
-    const dx = sc.box.x - pc.box.x;
-    const dy = sc.box.y - pc.box.y;
-    setTranslate(piece, dx, dy);
-
-    placedLayer.appendChild(piece);
-    placed.add(code);
-    PROG.textContent = String(placed.size);
-
-    const base = baseByCode.get(code);
-    if(base) base.setAttribute("opacity","0.12");
-
-    const box = TRAY.querySelector(`.pieceBox[data-code="${code}"]`);
-    if(box){
-      box.style.opacity="0.55";
-      box.style.filter="grayscale(0.2)";
-      const label = box.querySelector(".pieceName");
-      if(label) label.textContent = "✅ " + label.textContent.replace(/^✅\s*/,"");
-    }
-
-    clearHints();
-    if(placed.size === activeList.length){
-      setTimeout(()=>{ alert(`¡${ZONE.textContent} completada! 🎉`); nextLevel(); }, 80);
-    }
-    return true;
-  }
-
-  svg.addEventListener("pointermove", (e) => {
-    if(!dragging) return;
-    const p = svgPoint(e);
-    setTranslate(dragging, startTr.x + (p.x - startPt.x), startTr.y + (p.y - startPt.y));
-  });
-
-  window.addEventListener("pointerup", () => {
-    if(!dragging) return;
-    const ok = trySnap(dragging, draggingCode);
-    // si no encaja, la dejamos donde está (más natural en modo libre)
-    dragging = null;
-    draggingCode = null;
-  });
-
-  BTN_HINT.onclick = () => {
-    clearHints();
-    const code = randomPendingCode();
-    if(!code) return;
-    const slot = slotElByCode.get(code);
-    if(slot) slot.classList.add("hint");
-  };
-
-  BTN_SHUFFLE.onclick = () => {
-    const items = Array.from(TRAY.children);
-    for(let i=items.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      TRAY.insertBefore(items[j], items[i]);
-    }
-  };
-
-  BTN_RESET.onclick = () => {
-    for(const p of activeList){
-      const base = baseByCode.get(p.code);
-      if(base) base.setAttribute("opacity","0.35");
-    }
-    renderLevel();
-  };
 
   function nextLevel(){
     levelIndex++;
     if(levelIndex >= LEVELS.length){
       alert("¡España completada! 🇪🇸");
       levelIndex = 0;
-      for(const p of catalog){
-        const base = baseByCode.get(p.code);
-        if(base) base.setAttribute("opacity","0.35");
-      }
     }
     renderLevel();
   }
-  BTN_NEXT.onclick = nextLevel;
+
+  // ---- piezas (clic → aparece → arrastrar → snap) ----
+  let dragging = null;
+  let draggingKey = null;
+  let dragStart = null;
+  let dragStartTransform = null;
+
+  function getPointerInSvg(ev){
+    const pt = svg.node().createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    return pt.matrixTransform(svg.node().getScreenCTM().inverse());
+  }
+
+  function getTransform(node){
+    const t = node.getAttribute("transform") || "translate(0,0)";
+    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
+    return {x: m?+m[1]:0, y: m?+m[2]:0};
+  }
+
+  function setTransform(node, x, y){
+    node.setAttribute("transform", `translate(${x},${y})`);
+  }
+
+  const pieceByKey = new Map();
+
+  function spawnPiece(p, ev){
+    if(placed.has(p.key)) return;
+
+    let node = pieceByKey.get(p.key);
+    if(!node){
+      node = document.createElementNS("http://www.w3.org/2000/svg","path");
+      node.setAttribute("class","piece");
+      node.setAttribute("data-key", p.key);
+      node.setAttribute("fill", colorFor(p.key));
+      node.setAttribute("d", path(p.feature));
+      gPieces.node().appendChild(node);
+      pieceByKey.set(p.key, node);
+
+      // aparece cerca del cursor
+      const sp = getPointerInSvg(ev);
+      const c = path.centroid(p.feature);
+      setTransform(node, sp.x - c[0], sp.y - c[1]);
+    }
+
+    dragging = node;
+    draggingKey = p.key;
+    dragging.classList.add("dragging");
+    dragStart = getPointerInSvg(ev);
+    dragStartTransform = getTransform(dragging);
+  }
+
+  function trySnap(node, key){
+    const p = activeList.find(x=>x.key===key);
+    if(!p) return false;
+
+    // centroides proyectados
+    const target = path.centroid(p.feature); // [x,y] en pantalla SVG
+    const current = (function(){
+      // centroid del path sin transform, + transform actual
+      const t = getTransform(node);
+      const c0 = path.centroid(p.feature);
+      return [c0[0] + t.x, c0[1] + t.y];
+    })();
+
+    const dist = Math.hypot(current[0]-target[0], current[1]-target[1]);
+    if(dist > SNAP_DISTANCE) return false;
+
+    // mover a posición exacta (transform = target - centroidBase)
+    const baseC = path.centroid(p.feature);
+    setTransform(node, target[0]-baseC[0], target[1]-baseC[1]);
+
+    node.classList.remove("dragging");
+    gPlaced.node().appendChild(node);
+
+    placed.add(key);
+    PROG.textContent = String(placed.size);
+
+    // marcar chip
+    const chip = CHIPS.querySelector(`.chip[data-key="${key}"]`);
+    if(chip) chip.classList.add("done");
+
+    // sube opacidad del base ya completado (o bájala más, como prefieras)
+    gBase.selectAll("path").each(function(d){
+      if(d.key === key) d3.select(this).style("opacity", 0.08);
+    });
+
+    clearHint();
+    if(placed.size === activeList.length){
+      setTimeout(()=>{ alert(`¡${ZONE.textContent} completada! 🎉`); nextLevel(); }, 120);
+    }
+    return true;
+  }
+
+  svg.on("pointerdown", (ev) => {
+    const target = ev.target;
+    if(!(target instanceof SVGPathElement)) return;
+    if(!target.classList.contains("piece")) return;
+
+    const key = target.getAttribute("data-key");
+    if(!key || placed.has(key)) return;
+
+    dragging = target;
+    draggingKey = key;
+    dragging.classList.add("dragging");
+    dragStart = getPointerInSvg(ev);
+    dragStartTransform = getTransform(dragging);
+    target.setPointerCapture?.(ev.pointerId);
+  });
+
+  svg.on("pointermove", (ev) => {
+    if(!dragging) return;
+    const p = getPointerInSvg(ev);
+    const dx = p.x - dragStart.x;
+    const dy = p.y - dragStart.y;
+    setTransform(dragging, dragStartTransform.x + dx, dragStartTransform.y + dy);
+  });
+
+  window.addEventListener("pointerup", () => {
+    if(!dragging) return;
+    trySnap(dragging, draggingKey);
+    dragging.classList.remove("dragging");
+    dragging = null;
+    draggingKey = null;
+  });
+
+  // Botones
+  BTN_HINT.onclick = () => {
+    clearHint();
+    const p = randomPending();
+    if(!p) return;
+    gSlots.selectAll("path").each(function(d){
+      if(d.key === p.key) d3.select(this).classed("hint", true);
+    });
+  };
+
+  BTN_SHUFFLE.onclick = () => {
+    const items = Array.from(CHIPS.children);
+    for(let i=items.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      CHIPS.insertBefore(items[j], items[i]);
+    }
+  };
+
+  BTN_RESET.onclick = () => renderLevel();
+  BTN_NEXT.onclick = () => nextLevel();
+
+  BTN_LABELS.onclick = () => {
+    labelsOn = !labelsOn;
+    BTN_LABELS.textContent = `Nombres: ${labelsOn ? "ON" : "OFF"}`;
+    buildLabels();
+  };
 
   // Start
   renderLevel();
