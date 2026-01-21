@@ -116,7 +116,7 @@
     </div>
   </div>
 
-  <!-- D3 (solo para dibujar/zoom/cálculos geométricos) -->
+  <!-- D3 -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <script>
@@ -139,53 +139,33 @@
   const SNAP_DISTANCE = 40;
 
   const norm = (s) => (s||"")
-  .toLowerCase()
-  .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-  .replace(/\s+/g," ")
-  .trim();
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/\s+/g," ")
+    .trim();
 
-function hashToHue(str){
-  let h = 0;
-  for (let i=0;i<str.length;i++) h = (h*33 + str.charCodeAt(i)) >>> 0;
-  return h % 360;
-}
-
-function colorCommunity(cc){
-  const hue = hashToHue(cc);
-  return { hue, sat: 68, light: 52 };
-}
-
-function colorProvince(cc, provKey){
-  const base = colorCommunity(cc);
-  let k = 0;
-  for (let i=0;i<provKey.length;i++) k = (k*29 + provKey.charCodeAt(i)) >>> 0;
-  const delta = (k % 18) - 9; // -9..+8
-  const light = Math.max(38, Math.min(68, base.light + delta));
-  return `hsl(${base.hue} ${base.sat}% ${light}%)`;
-}
-
-}
-
-// Color base de comunidad (siempre el mismo para esa comunidad)
-function colorCommunity(cc){
-  const hue = hashToHue(cc);
-  return { hue, sat: 68, light: 52 };
-}
-
-// Variación por provincia dentro de su comunidad
-function colorProvince(cc, provKey){
-  const base = colorCommunity(cc);
-  // variamos la luminosidad con el key de la provincia
-  let k = 0;
-  for (let i=0;i<provKey.length;i++) k = (k*29 + provKey.charCodeAt(i)) >>> 0;
-  const delta = (k % 18) - 9;          // -9..+8
-  const light = Math.max(38, Math.min(68, base.light + delta));
-  return `hsl(${base.hue} ${base.sat}% ${light}%)`;
-}
-
+  // ===== COLORES por comunidad (base) y por provincia (variación) =====
+  function hashToHue(str){
+    let h = 0;
+    for (let i=0;i<str.length;i++) h = (h*33 + str.charCodeAt(i)) >>> 0;
+    return h % 360;
   }
 
-  // Mapa provincia -> comunidad (por nombre normalizado)
+  function colorCommunity(cc){
+    const hue = hashToHue(cc);
+    return { hue, sat: 68, light: 52 };
+  }
+
+  function colorProvince(cc, provKey){
+    const base = colorCommunity(cc);
+    let k = 0;
+    for (let i=0;i<provKey.length;i++) k = (k*29 + provKey.charCodeAt(i)) >>> 0;
+    const delta = (k % 18) - 9; // -9..+8
+    const light = Math.max(38, Math.min(68, base.light + delta));
+    return `hsl(${base.hue} ${base.sat}% ${light}%)`;
+  }
+
+  // ===== Mapa provincia -> comunidad =====
   const PROV_TO_CC = new Map([
     ["a coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["pontevedra","Galicia"],
     ["asturias","Principado de Asturias"],["cantabria","Cantabria"],
@@ -213,13 +193,11 @@ function colorProvince(cc, provKey){
     "Illes Balears","Canarias","Ceuta","Melilla"
   ];
 
-  // Obtener nombre “robusto” de un feature (depende del GeoJSON)
   function getProvName(props){
     const keys = ["name","nombre","provincia","province","NAME","NOMBRE","PROV","prov_name","texto"];
     for(const k of keys){
       if(props && props[k] && String(props[k]).trim()) return String(props[k]).trim();
     }
-    // fallback: intenta la primera propiedad string que parezca nombre
     if(props){
       for(const [k,v] of Object.entries(props)){
         if(typeof v === "string" && v.length <= 40 && v.length >= 3) return v.trim();
@@ -228,12 +206,11 @@ function colorProvince(cc, provKey){
     return "Provincia";
   }
 
-  // Clave estable para provincia (sirve para color y tracking)
   function provKey(feature){
     return feature.id || feature.properties?.id || feature.properties?.code || feature.properties?.codigo || getProvName(feature.properties);
   }
 
-  // ---- cargar GeoJSON local (repo) ----
+  // ===== Cargar GeoJSON local =====
   let geo;
   try{
     const res = await fetch("./espana-provincias.json");
@@ -242,13 +219,12 @@ function colorProvince(cc, provKey){
   }catch(e){
     LOADING?.remove();
     STAGE.innerHTML = `<div class="bad">No puedo cargar <code>espana-provincias.json</code></div>
-      <div class="hint">Crea ese archivo en tu repo (Add file → Create new file) y pega dentro el GeoJSON.</div>`;
+      <div class="hint">Asegúrate de que existe en el repo y se llama EXACTAMENTE así.</div>`;
     return;
   }
 
   LOADING?.remove();
 
-  // normalizar colección
   const features = (geo.type === "FeatureCollection") ? geo.features
                  : (geo.type === "Feature") ? [geo]
                  : (Array.isArray(geo)) ? geo
@@ -259,7 +235,6 @@ function colorProvince(cc, provKey){
     return;
   }
 
-  // Catalogo provincias -> comunidad
   const catalog = features.map(f => {
     const name = getProvName(f.properties || {});
     const cc = PROV_TO_CC.get(norm(name)) || "OTRAS";
@@ -268,7 +243,7 @@ function colorProvince(cc, provKey){
 
   STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
 
-  // ---- SVG + capas ----
+  // ===== SVG + capas =====
   const svg = d3.select("#stage").append("svg");
   const gRoot   = svg.append("g");
   const gBase   = gRoot.append("g").attr("id","base");
@@ -278,7 +253,6 @@ function colorProvince(cc, provKey){
   const gLabProv= gRoot.append("g").attr("id","labelsProv");
   const gLabCC  = gRoot.append("g").attr("id","labelsCC");
 
-  // tooltip
   function showTip(text, ev){
     TIP.style.display = "block";
     TIP.textContent = text;
@@ -288,7 +262,6 @@ function colorProvince(cc, provKey){
   }
   function hideTip(){ TIP.style.display = "none"; }
 
-  // Fit a pantalla (mapa entero)
   function fitProjection(){
     const w = document.getElementById("stage").clientWidth;
     const h = document.getElementById("stage").clientHeight;
@@ -302,19 +275,17 @@ function colorProvince(cc, provKey){
 
   let {w,h,projection,path} = fitProjection();
 
-  // zoom/pan
   const zoom = d3.zoom()
     .scaleExtent([1, 12])
     .on("zoom", (ev) => gRoot.attr("transform", ev.transform));
-  svg.call(zoom).call(zoom.transform, d3.zoomIdentity); // start fit
+  svg.call(zoom).call(zoom.transform, d3.zoomIdentity);
 
   window.addEventListener("resize", () => {
     ({w,h,projection,path} = fitProjection());
-    drawBase(); // recalcula paths
-    renderLevel(); // reconstruye slots/labels/pieces para mantener consistencia
+    drawBase();
+    renderLevel();
   });
 
-  // Base map coloreado por provincia
   function drawBase(){
     const sel = gBase.selectAll("path").data(catalog, d=>d.key);
     sel.join(
@@ -331,7 +302,7 @@ function colorProvince(cc, provKey){
   }
   drawBase();
 
-  // ---- Juego por comunidades ----
+  // ===== Juego por comunidades =====
   let levelIndex = 0;
   let activeList = [];
   let placed = new Set();
@@ -352,8 +323,7 @@ function colorProvince(cc, provKey){
     gLabCC.selectAll("*").remove();
     if(!labelsOn) return;
 
-    // Provincias: solo comunidad actual (para no llenar todo)
-    const provLabels = gLabProv.selectAll("text")
+    gLabProv.selectAll("text")
       .data(activeList, d=>d.key)
       .join("text")
       .attr("class","label-prov")
@@ -363,7 +333,6 @@ function colorProvince(cc, provKey){
       .attr("x", d=>path.centroid(d.feature)[0])
       .attr("y", d=>path.centroid(d.feature)[1]);
 
-    // Comunidad (una etiqueta grande centrada en el bounding box de su conjunto)
     let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
     for(const p of activeList){
       const b = path.bounds(p.feature);
@@ -381,24 +350,23 @@ function colorProvince(cc, provKey){
   }
 
   function renderChips(){
-  CHIPS.innerHTML = "";
-  for(const p of activeList){
-    const chip = document.createElement("div");
-    chip.className = "chip";
-    chip.textContent = p.name; // <-- nombre visible
+    CHIPS.innerHTML = "";
+    for(const p of activeList){
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.textContent = p.name;
 
-    const base = colorCommunity(p.cc);
-    chip.style.borderColor = `hsl(${base.hue} 80% 70%)`;
-    chip.style.background  = `hsl(${base.hue} 90% 96%)`;
-    chip.style.boxShadow   = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
+      const base = colorCommunity(p.cc);
+      chip.style.borderColor = `hsl(${base.hue} 80% 70%)`;
+      chip.style.background  = `hsl(${base.hue} 90% 96%)`;
+      chip.style.boxShadow   = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
 
-    chip.dataset.key = p.key;
-    if(placed.has(p.key)) chip.classList.add("done");
-    chip.onclick = (ev)=> spawnPiece(p, ev);
-    CHIPS.appendChild(chip);
+      chip.dataset.key = p.key;
+      if(placed.has(p.key)) chip.classList.add("done");
+      chip.onclick = (ev)=> spawnPiece(p, ev);
+      CHIPS.appendChild(chip);
+    }
   }
-}
-
 
   function renderSlots(){
     const sel = gSlots.selectAll("path").data(activeList, d=>d.key);
@@ -413,10 +381,9 @@ function colorProvince(cc, provKey){
   }
 
   function resetOpacityForLevel(){
-    // baja opacidad base de la comunidad actual al iniciar
     gBase.selectAll("path").each(function(d){
       const el = d3.select(this);
-      if(d.cc === LEVELS[levelIndex]) el.style("opacity", 0.18);
+      if(d.cc === LEVELS[levelIndex]) el.style("opacity", 0.22);
       else el.style("opacity", 0.30);
     });
   }
@@ -450,7 +417,7 @@ function colorProvince(cc, provKey){
     renderLevel();
   }
 
-  // ---- piezas (clic → aparece → arrastrar → snap) ----
+  // ===== piezas =====
   let dragging = null;
   let draggingKey = null;
   let dragStart = null;
@@ -487,7 +454,6 @@ function colorProvince(cc, provKey){
       gPieces.node().appendChild(node);
       pieceByKey.set(p.key, node);
 
-      // aparece cerca del cursor
       const sp = getPointerInSvg(ev);
       const c = path.centroid(p.feature);
       setTransform(node, sp.x - c[0], sp.y - c[1]);
@@ -504,10 +470,8 @@ function colorProvince(cc, provKey){
     const p = activeList.find(x=>x.key===key);
     if(!p) return false;
 
-    // centroides proyectados
-    const target = path.centroid(p.feature); // [x,y] en pantalla SVG
+    const target = path.centroid(p.feature);
     const current = (function(){
-      // centroid del path sin transform, + transform actual
       const t = getTransform(node);
       const c0 = path.centroid(p.feature);
       return [c0[0] + t.x, c0[1] + t.y];
@@ -516,7 +480,6 @@ function colorProvince(cc, provKey){
     const dist = Math.hypot(current[0]-target[0], current[1]-target[1]);
     if(dist > SNAP_DISTANCE) return false;
 
-    // mover a posición exacta (transform = target - centroidBase)
     const baseC = path.centroid(p.feature);
     setTransform(node, target[0]-baseC[0], target[1]-baseC[1]);
 
@@ -526,13 +489,11 @@ function colorProvince(cc, provKey){
     placed.add(key);
     PROG.textContent = String(placed.size);
 
-    // marcar chip
     const chip = CHIPS.querySelector(`.chip[data-key="${key}"]`);
     if(chip) chip.classList.add("done");
 
-    // sube opacidad del base ya completado (o bájala más, como prefieras)
     gBase.selectAll("path").each(function(d){
-      if(d.key === key) d3.select(this).style("opacity", 0.08);
+      if(d.key === key) d3.select(this).style("opacity", 0.10);
     });
 
     clearHint();
@@ -574,7 +535,7 @@ function colorProvince(cc, provKey){
     draggingKey = null;
   });
 
-  // Botones
+  // ===== Botones =====
   BTN_HINT.onclick = () => {
     clearHint();
     const p = randomPending();
