@@ -1,599 +1,317 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<title>Juego Provincias de España</title>
- 
-  <!-- Leaflet CSS (librería de mapas) -->
-<link
 
-    rel="stylesheet"
-
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-
-    crossorigin=""
-
-  />
- 
-  <style>
-
-    * {
-
-      box-sizing: border-box;
-
-      margin: 0;
-
-      padding: 0;
-
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-
-    }
- 
-    body {
-
-      background: #f4f6fb;
-
-      display: flex;
-
-      flex-direction: column;
-
-      align-items: center;
-
-      padding: 20px;
-
-      color: #222;
-
-    }
- 
-    h1 {
-
-      margin-bottom: 10px;
-
-      text-align: center;
-
-    }
- 
-    .game-container {
-
-      width: 100%;
-
-      max-width: 1000px;
-
-      background: #ffffff;
-
-      border-radius: 16px;
-
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-
-      padding: 16px;
-
-    }
- 
-    .top-bar {
-
-      display: flex;
-
-      flex-wrap: wrap;
-
-      align-items: center;
-
-      justify-content: space-between;
-
-      gap: 10px;
-
-      margin-bottom: 10px;
-
-    }
- 
-    .question {
-
-      font-size: 1.1rem;
-
-      font-weight: 600;
-
-    }
- 
-    .question span {
-
-      color: #1e88e5;
-
-    }
- 
-    .score {
-
-      font-size: 0.95rem;
-
-      padding: 6px 10px;
-
-      border-radius: 999px;
-
-      background: #e3f2fd;
-
-      color: #1565c0;
-
-    }
- 
-    .controls {
-
-      display: flex;
-
-      gap: 8px;
-
-      flex-wrap: wrap;
-
-    }
- 
-    button {
-
-      border: none;
-
-      border-radius: 999px;
-
-      padding: 8px 14px;
-
-      font-size: 0.9rem;
-
-      cursor: pointer;
-
-      background: #1e88e5;
-
-      color: #fff;
-
-      font-weight: 600;
-
-      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
-
-    }
- 
-    button:hover {
-
-      background: #1565c0;
-
-      box-shadow: 0 3px 8px rgba(21, 101, 192, 0.3);
-
-      transform: translateY(-1px);
-
-    }
- 
-    #map {
-
-      width: 100%;
-
-      height: 600px;
-
-      border-radius: 12px;
-
-      overflow: hidden;
-
-      margin-bottom: 10px;
-
-    }
- 
-    .feedback {
-
-      min-height: 24px;
-
-      font-size: 0.95rem;
-
-      font-weight: 500;
-
-    }
- 
-    .feedback.ok {
-
-      color: #2e7d32;
-
-    }
- 
-    .feedback.error {
-
-      color: #c62828;
-
-    }
- 
-    @media (max-width: 768px) {
-
-      #map {
-
-        height: 450px;
-
-      }
-
-    }
-</style>
-</head>
-<body>
-<h1>Juego: Provincias de España</h1>
-<div class="game-container">
-<div class="top-bar">
-<div class="question">
-
-        Haz clic en la provincia: <span id="targetProvince">Cargando...</span>
-</div>
-<div class="controls">
-<span class="score">Aciertos: <span id="score">0</span></span>
-<button id="btnSkip">Cambiar provincia</button>
-<button id="btnResetColors">Reset colores</button>
-</div>
-</div>
- 
-    <div id="map"></div>
- 
-    <div id="feedback" class="feedback"></div>
-</div>
- 
-  <!-- Leaflet JS -->
-<script
-
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-
-    crossorigin=""
-></script>
- 
-  <script>
-
-    // 🔹 Crear el mapa centrado en España
-
-    const map = L.map("map", {
-
-      zoomSnap: 0.25,
-
-      zoomDelta: 0.5
-
-    }).setView([40.0, -3.7], 5.5);
- 
-    // Fondo gris clarito para que se vea bonito y limpio
-
-    L.tileLayer("", {
-
-      attribution: ""
-
-    });
- 
-    // Solo color de fondo del div
-
-    document.getElementById("map").style.background = "#e3f2fd";
- 
-    // 🔹 URL GeoJSON de provincias de España
-
-    const GEOJSON_URL =
-
-      "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-provinces.geojson%22;
- 
-    let provincesLayer = null;
-
-    let provincesList = [];
-
-    let currentTarget = null;
-
-    let score = 0;
- 
-    const targetSpan = document.getElementById("targetProvince");
-
-    const feedbackDiv = document.getElementById("feedback");
-
-    const scoreSpan = document.getElementById("score");
-
-    const btnSkip = document.getElementById("btnSkip");
-
-    const btnResetColors = document.getElementById("btnResetColors");
- 
-    // Función para sacar el nombre de la provincia sin importar el campo exacto
-
-    function getProvinceName(feature) {
-
-      const props = feature.properties || {};
-
-      return (
-
-        props.name ||
-
-        props.NAME ||
-
-        props.province ||
-
-        props.Provincia ||
-
-        props.provincia ||
-
-        "Provincia"
-
-      );
-
-    }
- 
-    // Estilo por defecto de cada provincia
-
-    function defaultStyle() {
-
-      return {
-
-        color: "#ffffff",
-
-        weight: 1,
-
-        fillColor: "#90caf9",
-
-        fillOpacity: 0.7
-
-      };
-
-    }
- 
-    // Estilo para hover
-
-    function hoverStyle() {
-
-      return {
-
-        weight: 2,
-
-        color: "#0d47a1",
-
-        fillColor: "#64b5f6",
-
-        fillOpacity: 0.9
-
-      };
-
-    }
- 
-    // Estilo para acierto
-
-    function correctStyle() {
-
-      return {
-
-        color: "#1b5e20",
-
-        weight: 2,
-
-        fillColor: "#66bb6a",
-
-        fillOpacity: 0.9
-
-      };
-
-    }
- 
-    // Estilo para error momentáneo
-
-    function wrongStyle() {
-
-      return {
-
-        color: "#b71c1c",
-
-        weight: 2,
-
-        fillColor: "#ef9a9a",
-
-        fillOpacity: 0.9
-
-      };
-
-    }
- 
-    // Elegir una nueva provincia objetivo
-
-    function chooseNewTarget() {
-
-      if (!provincesList.length) return;
-
-      const randomIndex = Math.floor(Math.random() * provincesList.length);
-
-      currentTarget = provincesList[randomIndex];
-
-      targetSpan.textContent = currentTarget;
-
-      feedbackDiv.textContent = "";
-
-      feedbackDiv.className = "feedback";
-
-    }
- 
-    // Resetear colores de todas las provincias al estilo por defecto
-
-    function resetAllStyles() {
-
-      if (!provincesLayer) return;
-
-      provincesLayer.eachLayer(layer => {
-
-        provincesLayer.resetStyle(layer);
-
-      });
-
-      feedbackDiv.textContent = "";
-
-      feedbackDiv.className = "feedback";
-
-    }
- 
-    // Comprobar si la provincia pulsada es la correcta
-
-    function checkAnswer(clickedName, layer) {
-
-      if (!currentTarget) return;
- 
-      const normalizedClicked = clickedName.toLowerCase();
-
-      const normalizedTarget = currentTarget.toLowerCase();
- 
-      if (normalizedClicked === normalizedTarget) {
-
-        // ACIERTO
-
-        layer.setStyle(correctStyle());
-
-        feedbackDiv.textContent = "¡Muy bien! Has acertado " + clickedName + " 🎉";
-
-        feedbackDiv.className = "feedback ok";
-
-        score += 1;
-
-        scoreSpan.textContent = score;
- 
-        // Elegir otra provincia después de un pequeño delay
-
-        setTimeout(() => {
-
-          resetAllStyles();
-
-          chooseNewTarget();
-
-        }, 1000);
-
-      } else {
-
-        // ERROR
-
-        const originalStyle = defaultStyle();
-
-        layer.setStyle(wrongStyle());
-
-        feedbackDiv.textContent =
-
-          "Uy, no. Has elegido " + clickedName + ". Inténtalo otra vez 🙂";
-
-        feedbackDiv.className = "feedback error";
- 
-        // Volver al estilo original después de un momento
-
-        setTimeout(() => {
-
-          // Solo si no ha sido acertada entre medias
-
-          provincesLayer.resetStyle(layer);
-
-        }, 800);
-
-      }
-
-    }
- 
-    // Cargar GeoJSON y montar el juego
-
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { COMMUNITIES, COMMUNITY_COLORS } from './constants';
+import { GameState } from './types';
+
+const GEOJSON_URL = "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-provinces.geojson";
+
+type Phase = 'SELECT_COMMUNITY' | 'PLACE_PROVINCES';
+
+const App: React.FC = () => {
+  const [geoData, setGeoData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<Phase>('SELECT_COMMUNITY');
+  const [gameState, setGameState] = useState<GameState>({
+    completedProvinces: [],
+    completedCommunities: [],
+    currentCommunityIndex: 0,
+    unlockedCommunities: [COMMUNITIES[0].id]
+  });
+
+  const [selectedProvinceName, setSelectedProvinceName] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' }>({
+    text: 'Cargando...',
+    type: 'info'
+  });
+
+  useEffect(() => {
     fetch(GEOJSON_URL)
-
-      .then(response => {
-
-        if (!response.ok) {
-
-          throw new Error("No se pudo cargar el GeoJSON de provincias.");
-
-        }
-
-        return response.json();
-
-      })
-
+      .then(res => res.json())
       .then(data => {
+        setGeoData(data);
+        setLoading(false);
+        const firstComm = COMMUNITIES[0].name;
+        setMessage({ text: `Paso 1: Localiza ${firstComm} en el mapa.`, type: 'info' });
+      })
+      .catch(() => {
+        setMessage({ text: 'Error de mapa.', type: 'error' });
+      });
+  }, []);
 
-        provincesList = data.features.map(f => getProvinceName(f));
- 
-        provincesLayer = L.geoJSON(data, {
+  const currentCommunity = useMemo(() => COMMUNITIES[gameState.currentCommunityIndex], [gameState.currentCommunityIndex]);
+  
+  const pendingProvinces = useMemo(() => 
+    currentCommunity.provinces.filter(p => !gameState.completedProvinces.includes(p)),
+    [currentCommunity, gameState.completedProvinces]
+  );
 
-          style: defaultStyle,
+  const isGameFinished = gameState.completedProvinces.length === 50;
 
-          onEachFeature: (feature, layer) => {
+  const handleProvinceSelect = (name: string) => {
+    setSelectedProvinceName(name);
+    setMessage({ text: `¿Dónde está ${name}?`, type: 'info' });
+  };
 
-            const name = getProvinceName(feature);
- 
-            // Tooltip al pasar el ratón
+  const handleMapClick = (name: string) => {
+    if (isGameFinished) return;
 
-            layer.bindTooltip(name, {
+    // Fase 1: Seleccionar la comunidad entera
+    if (phase === 'SELECT_COMMUNITY') {
+      const clickedComm = COMMUNITIES.find(c => c.provinces.some(p => p.toLowerCase() === name.toLowerCase()));
+      if (clickedComm?.id === currentCommunity.id) {
+        setPhase('PLACE_PROVINCES');
+        setMessage({ text: `¡Correcto! Ahora coloca las provincias de ${currentCommunity.name}.`, type: 'success' });
+      } else {
+        setMessage({ text: `Eso es ${clickedComm?.name || 'otra zona'}. Busca ${currentCommunity.name}.`, type: 'error' });
+      }
+      return;
+    }
 
-              direction: "auto",
+    // Fase 2: Colocar provincias específicas
+    if (phase === 'PLACE_PROVINCES') {
+      if (!selectedProvinceName) {
+        setMessage({ text: 'Elige una provincia de la lista.', type: 'info' });
+        return;
+      }
 
-              sticky: true
+      if (name.toLowerCase() === selectedProvinceName.toLowerCase()) {
+        const newCompletedProvinces = [...gameState.completedProvinces, selectedProvinceName];
+        
+        setGameState(prev => {
+          const isCommComplete = currentCommunity.provinces.every(p => newCompletedProvinces.includes(p));
+          
+          let nextIndex = prev.currentCommunityIndex;
+          let newCompletedComms = prev.completedCommunities;
+          let newUnlockedComms = prev.unlockedCommunities;
 
-            });
- 
-            // Eventos de interacción
-
-            layer.on("mouseover", function () {
-
-              if (
-
-                feedbackDiv.classList.contains("ok") &&
-
-                targetSpan.textContent === name
-
-              ) {
-
-                // si justo acabamos de acertar esa, no cambiar
-
-                return;
-
+          if (isCommComplete) {
+            newCompletedComms = [...prev.completedCommunities, currentCommunity.id];
+            setPhase('SELECT_COMMUNITY');
+            if (prev.currentCommunityIndex < COMMUNITIES.length - 1) {
+              nextIndex = prev.currentCommunityIndex + 1;
+              const nextComm = COMMUNITIES[nextIndex];
+              setMessage({ text: `¡Comunidad completada! Siguiente: ${nextComm.name}`, type: 'success' });
+              if (!newUnlockedComms.includes(nextComm.id)) {
+                  newUnlockedComms = [...newUnlockedComms, nextComm.id];
               }
-
-              layer.setStyle(hoverStyle());
-
-            });
- 
-            layer.on("mouseout", function () {
-
-              provincesLayer.resetStyle(layer);
-
-            });
- 
-            layer.on("click", function () {
-
-              checkAnswer(name, layer);
-
-            });
-
+            } else {
+              setMessage({ text: '¡Has completado toda España!', type: 'success' });
+            }
+          } else {
+            setMessage({ text: `${name} correcto.`, type: 'success' });
           }
 
-        }).addTo(map);
- 
-        // Ajustar vista al contorno de España
+          return {
+            ...prev,
+            completedProvinces: newCompletedProvinces,
+            completedCommunities: newCompletedComms,
+            currentCommunityIndex: nextIndex,
+            unlockedCommunities: newUnlockedComms
+          };
+        });
+        setSelectedProvinceName(null);
+      } else {
+        setMessage({ text: `No, eso es ${name}.`, type: 'error' });
+      }
+    }
+  };
 
-        map.fitBounds(provincesLayer.getBounds());
- 
-        // Empezar el juego
-
-        chooseNewTarget();
-
-      })
-
-      .catch(err => {
-
-        console.error(err);
-
-        targetSpan.textContent = "Error cargando el mapa";
-
-        feedbackDiv.textContent =
-
-          "Ha habido un problema cargando el mapa. Revisa tu conexión a Internet.";
-
-        feedbackDiv.className = "feedback error";
-
-      });
- 
-    // Botón "Cambiar provincia"
-
-    btnSkip.addEventListener("click", () => {
-
-      chooseNewTarget();
-
+  const resetGame = () => {
+    setGameState({
+      completedProvinces: [],
+      completedCommunities: [],
+      currentCommunityIndex: 0,
+      unlockedCommunities: [COMMUNITIES[0].id]
     });
- 
-    // Botón "Reset colores"
+    setPhase('SELECT_COMMUNITY');
+    setSelectedProvinceName(null);
+    setMessage({ text: `Localiza ${COMMUNITIES[0].name}.`, type: 'info' });
+  };
 
-    btnResetColors.addEventListener("click", () => {
+  if (loading) return (
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 text-white font-sans">
+      <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-xs font-black uppercase tracking-widest animate-pulse">Cargando Mapa...</p>
+    </div>
+  );
 
-      resetAllStyles();
+  return (
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans overflow-hidden">
+      {/* HEADER COMPACTO */}
+      <header className="w-full bg-[#0F172A] text-white p-4 shadow-xl border-b-2 border-amber-500 flex justify-between items-center z-50">
+        <div className="flex items-center gap-3">
+          <div className="bg-amber-500 p-2 rounded-lg shadow-lg">
+             <span className="text-lg font-black italic text-slate-900 leading-none">ESP</span>
+          </div>
+          <div>
+            <h1 className="text-lg font-black uppercase tracking-tighter leading-none">Puzzle Pro</h1>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex bg-slate-800 px-4 py-1.5 rounded-full border border-slate-700 items-center gap-4 shadow-inner">
+            <span className="text-[10px] font-black text-amber-500 leading-none">{gameState.completedProvinces.length}/50</span>
+            <div className="w-px h-4 bg-slate-700"></div>
+            <span className="text-[10px] font-black text-sky-400 leading-none">{gameState.completedCommunities.length}/17</span>
+          </div>
+          <button onClick={resetGame} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+      </header>
 
-    });
-</script>
-</body>
-</html>
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-slate-200">
+        
+        {/* ÁREA DEL MAPA */}
+        <section className="lg:col-span-9 bg-[#D6EAF8] relative flex items-center justify-center p-4">
+          <svg 
+            viewBox="-11.5 35.5 16.5 9.5" 
+            className="w-full h-full max-h-[85vh] drop-shadow-lg"
+            style={{ transform: 'scaleY(-1)' }} 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {geoData.features.map((feature: any, idx: number) => {
+              const name = feature.properties.name || feature.properties.NAME || feature.properties.provincia;
+              const isCompleted = gameState.completedProvinces.includes(name);
+              const community = COMMUNITIES.find(c => c.provinces.some(p => p.toLowerCase() === name.toLowerCase()));
+              const isUnlocked = community ? gameState.unlockedCommunities.includes(community.id) : false;
+              const isCurrent = community?.id === currentCommunity.id;
+              
+              const fillColor = isCompleted 
+                ? (community ? COMMUNITY_COLORS[community.id] : '#CBD5E1')
+                : (isCurrent ? (phase === 'SELECT_COMMUNITY' ? '#FDE68A' : '#FEF3C7') : '#FFFFFF');
 
- 
+              return (
+                <path
+                  key={idx}
+                  d={renderPath(feature.geometry)}
+                  onClick={() => handleMapClick(name)}
+                  className="transition-all duration-300"
+                  style={{
+                    fill: fillColor,
+                    stroke: isCompleted ? '#FFFFFF' : (isCurrent ? '#F59E0B' : '#E2E8F0'),
+                    strokeWidth: 0.015,
+                    opacity: isUnlocked ? 1 : 0.2,
+                    cursor: isUnlocked && !isCompleted ? 'pointer' : 'default',
+                    transform: isCurrent && phase === 'SELECT_COMMUNITY' ? 'scale(1.001)' : 'none'
+                  }}
+                />
+              );
+            })}
+          </svg>
 
+          {/* MENSAJE MINIMALISTA EN LA ESQUINA SUPERIOR DERECHA */}
+          <div className="absolute top-4 right-4 z-50 pointer-events-none">
+            <div className={`px-4 py-2 rounded-xl shadow-lg border-2 text-[11px] font-black uppercase tracking-tight transition-all duration-500 transform ${
+                message.type === 'success' ? 'bg-emerald-500 text-white border-emerald-600' :
+                message.type === 'error' ? 'bg-rose-500 text-white border-rose-600' :
+                'bg-white text-slate-800 border-slate-200'
+              }`}>
+              {message.text}
+            </div>
+          </div>
+        </section>
+
+        {/* SIDEBAR */}
+        <aside className="lg:col-span-3 bg-white border-l border-slate-200 flex flex-col h-full overflow-hidden">
+          <div className="p-6 flex-1 overflow-y-auto space-y-6">
+            
+            {/* INSTRUCCIÓN DE FASE */}
+            <div className={`p-4 rounded-2xl border-2 transition-all ${phase === 'SELECT_COMMUNITY' ? 'bg-amber-50 border-amber-200' : 'bg-sky-50 border-sky-200'}`}>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                {phase === 'SELECT_COMMUNITY' ? 'Paso 1: Localizar Zona' : 'Paso 2: Colocar Piezas'}
+              </span>
+              <h2 className="text-xl font-black uppercase tracking-tighter leading-none" style={{ color: COMMUNITY_COLORS[currentCommunity.id] }}>
+                {currentCommunity.name}
+              </h2>
+            </div>
+
+            {/* LISTADO DE PROVINCIAS (Solo visible en fase 2) */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-2">
+                {phase === 'PLACE_PROVINCES' ? 'Provincias pendientes:' : 'Haz clic en la comunidad en el mapa'}
+              </span>
+              
+              {phase === 'PLACE_PROVINCES' ? (
+                pendingProvinces.map(pName => (
+                  <button
+                    key={pName}
+                    onClick={() => handleProvinceSelect(pName)}
+                    className={`w-full p-3 rounded-xl text-left border-2 font-black uppercase tracking-tight text-xs transition-all relative ${
+                      selectedProvinceName === pName
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-md translate-x-1'
+                      : 'bg-white text-slate-600 border-slate-100 hover:border-amber-200'
+                    }`}
+                  >
+                    {pName}
+                  </button>
+                ))
+              ) : (
+                <div className="py-8 text-center border-2 border-dashed border-slate-200 rounded-2xl opacity-50">
+                  <span className="text-[10px] font-bold text-slate-400">ESPERANDO SELECCIÓN...</span>
+                </div>
+              )}
+            </div>
+
+            {/* PROGRESO DE COMUNIDADES */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block px-2">Hoja de ruta</span>
+              <div className="space-y-1.5 h-48 overflow-y-auto pr-2 custom-scrollbar">
+                {COMMUNITIES.map((comm) => {
+                  const isDone = gameState.completedCommunities.includes(comm.id);
+                  const isNow = currentCommunity.id === comm.id;
+                  return (
+                    <div key={comm.id} className={`flex items-center gap-3 p-2 rounded-lg border transition-all ${isNow ? 'bg-amber-50 border-amber-100' : isDone ? 'bg-emerald-50 border-transparent opacity-60' : 'opacity-30'}`}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center font-black text-white text-[9px]" style={{ backgroundColor: COMMUNITY_COLORS[comm.id] }}>
+                        {isDone ? '✓' : comm.provinces.length}
+                      </div>
+                      <span className="text-[9px] font-black uppercase text-slate-500">{comm.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      {/* VICTORIA */}
+      {isGameFinished && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
+          <div className="bg-white p-12 rounded-[3rem] shadow-2xl max-w-sm w-full text-center space-y-6 transform animate-in zoom-in border-8 border-amber-500">
+            <span className="text-7xl animate-bounce inline-block">🏆</span>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">¡Logrado!</h2>
+            <p className="text-slate-500 font-bold text-sm">Has completado el mapa de España paso a paso.</p>
+            <button onClick={resetGame} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-lg rounded-2xl shadow-lg transition-all active:scale-95">
+              REPETIR
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
+      `}</style>
+    </div>
+  );
+};
+
+function renderPath(geometry: any): string {
+  if (geometry.type === 'Polygon') {
+    return geometry.coordinates.map((ring: any) => 
+      `M ${ring.map((coord: any) => coord.join(',')).join(' L ')} Z`
+    ).join(' ');
+  } else if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.map((polygon: any) => 
+      polygon.map((ring: any) => 
+        `M ${ring.map((coord: any) => coord.join(',')).join(' L ')} Z`
+      ).join(' ')
+    ).join(' ');
+  }
+  return '';
+}
+
+export default App;
