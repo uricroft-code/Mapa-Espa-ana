@@ -1,587 +1,359 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>España — Puzzle Provincias por Comunidades</title>
+<meta charset="UTF-8" />
+<title>Juego Provincias de España</title>
+ 
+  <!-- Leaflet CSS (librería de mapas) -->
+<link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+ 
   <style>
-    :root{
-      --bg:#f5f7ff; --card:#fff; --ink:#111827; --muted:#374151;
-      --line:#e5e7eb; --shadow:0 10px 25px rgba(0,0,0,.08);
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink)}
-    .wrap{width:min(1400px,96vw);margin:0 auto;padding:16px}
-    header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:800}
-    button{border:0;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:900}
-    .btn1{background:#f97316;color:#fff}
-    .btn2{background:#ef4444;color:#fff}
-    .btn3{background:#10b981;color:#fff}
-    .btn4{background:#6366f1;color:#fff}
-    .btn5{background:#111827;color:#fff}
-
-    .grid{display:grid;grid-template-columns: 1fr 420px; gap:14px; margin-top:14px}
-    @media (max-width: 1050px){ .grid{grid-template-columns:1fr} }
-
-    .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px}
-    #stage{height:min(82vh,920px);border-radius:16px;overflow:hidden;position:relative;background:#fff}
-    #stage svg{width:100%;height:100%;display:block}
-
-    .hint{color:var(--muted);margin-top:10px;line-height:1.4}
-    .ok{color:#16a34a;font-weight:900}
-    .bad{color:#dc2626;font-weight:900}
-    code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
-
-    .list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:62vh;overflow:auto;padding-right:6px}
-    .chip{
-      border:1px solid #bfdbfe;background:#eff6ff;border-radius:999px;
-      padding:8px 10px;font-size:12px;font-weight:900;
-      cursor:pointer; user-select:none;
+ 
+    body {
+      background: #f4f6fb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: #222;
     }
-    .chip.done{opacity:.55;text-decoration:line-through}
-    .chip:hover{filter:brightness(.98)}
-
-    .tooltip{
-      position:absolute; pointer-events:none;
-      background:rgba(17,24,39,.92); color:#fff;
-      padding:8px 10px; border-radius:10px;
-      font-weight:900; font-size:12px;
-      display:none; z-index:10;
-      transform:translate(10px,10px);
-      max-width:260px;
+ 
+    h1 {
+      margin-bottom: 10px;
+      text-align: center;
     }
-
-    /* MAPA */
-    .prov-base{
-      stroke:#fff; stroke-width:1; vector-effect:non-scaling-stroke;
-      opacity:.30;
+ 
+    .game-container {
+      width: 100%;
+      max-width: 1000px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      padding: 16px;
     }
-    .prov-slot{
-      fill:none;
-      stroke:#111827; stroke-width:1.2; vector-effect:non-scaling-stroke;
-      stroke-dasharray:7 6;
-      pointer-events:none;
-      opacity:.95;
+ 
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
     }
-    .prov-slot.hint{
-      stroke:#f59e0b; stroke-width:2.8; stroke-dasharray:0;
-      opacity:1;
+ 
+    .question {
+      font-size: 1.1rem;
+      font-weight: 600;
     }
-    .piece{
-      stroke:#111827; stroke-width:1.1; vector-effect:non-scaling-stroke;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,.18));
-      cursor:grab; touch-action:none;
+ 
+    .question span {
+      color: #1e88e5;
     }
-    .piece.dragging{cursor:grabbing; opacity:.92}
-
-    .label-prov{
-      font-size:10px; font-weight:900; fill:#0b1220;
-      paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round;
-      pointer-events:none; user-select:none;
+ 
+    .score {
+      font-size: 0.95rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e3f2fd;
+      color: #1565c0;
     }
-    .label-cc{
-      font-size:18px; font-weight:1000; fill:#111827; opacity:.90;
-      paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round;
-      pointer-events:none; user-select:none;
+ 
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-  </style>
+ 
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: #1e88e5;
+      color: #fff;
+      font-weight: 600;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+    }
+ 
+    button:hover {
+      background: #1565c0;
+      box-shadow: 0 3px 8px rgba(21, 101, 192, 0.3);
+      transform: translateY(-1px);
+    }
+ 
+    #map {
+      width: 100%;
+      height: 600px;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+ 
+    .feedback {
+      min-height: 24px;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+ 
+    .feedback.ok {
+      color: #2e7d32;
+    }
+ 
+    .feedback.error {
+      color: #c62828;
+    }
+ 
+    @media (max-width: 768px) {
+      #map {
+        height: 450px;
+      }
+    }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="pill">Comunidad: <span id="zone">—</span></div>
-      <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
-      <button class="btn1" id="shuffle">Mezclar lista</button>
-      <button class="btn4" id="hintBtn">Pista</button>
-      <button class="btn5" id="toggleLabels">Nombres: ON</button>
-      <button class="btn2" id="reset">Reiniciar comunidad</button>
-      <button class="btn3" id="next">Siguiente</button>
-    </header>
-
-    <div class="grid">
-      <div class="card" id="stage">
-        <div id="tip" class="tooltip"></div>
-        <div id="loading" class="hint">Cargando mapa real (SVG)…</div>
-      </div>
-
-      <div class="card">
-        <b>Piezas disponibles (click → aparece → arrastra)</b>
-        <div id="status" class="hint"></div>
-        <div class="hint">
-          Click en una provincia para “sacarla” como pieza y arrástrala al mapa.
-          Encaja sola si cae cerca del hueco.
-        </div>
-        <div class="list" id="chips"></div>
-        <div class="hint">
-          Archivos requeridos en el repo:
-          <br>— <code>index.html</code>
-          <br>— <code>spain-provinces.svg</code>
-        </div>
-      </div>
-    </div>
-  </div>
-
-<script>
-(async function(){
-  const STAGE  = document.getElementById("stage");
-  const LOADING= document.getElementById("loading");
-  const ZONE   = document.getElementById("zone");
-  const PROG   = document.getElementById("prog");
-  const TOTAL  = document.getElementById("total");
-  const STATUS = document.getElementById("status");
-  const CHIPS  = document.getElementById("chips");
-  const TIP    = document.getElementById("tip");
-
-  const BTN_SHUFFLE = document.getElementById("shuffle");
-  const BTN_RESET   = document.getElementById("reset");
-  const BTN_NEXT    = document.getElementById("next");
-  const BTN_HINT    = document.getElementById("hintBtn");
-  const BTN_LABELS  = document.getElementById("toggleLabels");
-
-  const SNAP_DISTANCE = 28;
-
-  // ---- comunidades (orden de niveles) ----
-  const LEVELS = [
-    "Galicia","Principado de Asturias","Cantabria","País Vasco","Navarra","La Rioja",
-    "Aragón","Cataluña","Castilla y León","Comunidad de Madrid","Castilla-La Mancha",
-    "Extremadura","Comunidad Valenciana","Región de Murcia","Andalucía",
-    "Illes Balears","Canarias","Ceuta","Melilla"
-  ];
-
-  // Mapa ISO ES-XX -> Comunidad
-  const CODE_TO_CC = new Map([
-    // Galicia
-    ["ES-C","Galicia"],["ES-LU","Galicia"],["ES-OR","Galicia"],["ES-PO","Galicia"],
-    // Asturias / Cantabria
-    ["ES-O","Principado de Asturias"],["ES-S","Cantabria"],
-    // País Vasco
-    ["ES-VI","País Vasco"],["ES-SS","País Vasco"],["ES-BI","País Vasco"],
-    // Navarra / Rioja
-    ["ES-NA","Navarra"],["ES-LO","La Rioja"],
-    // Aragón
-    ["ES-HU","Aragón"],["ES-TE","Aragón"],["ES-Z","Aragón"],
-    // Cataluña
-    ["ES-B","Cataluña"],["ES-GI","Cataluña"],["ES-L","Cataluña"],["ES-T","Cataluña"],
-    // Castilla y León
-    ["ES-AV","Castilla y León"],["ES-BU","Castilla y León"],["ES-LE","Castilla y León"],["ES-P","Castilla y León"],
-    ["ES-SA","Castilla y León"],["ES-SG","Castilla y León"],["ES-SO","Castilla y León"],["ES-VA","Castilla y León"],["ES-ZA","Castilla y León"],
-    // Madrid
-    ["ES-M","Comunidad de Madrid"],
-    // Castilla-La Mancha
-    ["ES-AB","Castilla-La Mancha"],["ES-CR","Castilla-La Mancha"],["ES-CU","Castilla-La Mancha"],["ES-GU","Castilla-La Mancha"],["ES-TO","Castilla-La Mancha"],
-    // Extremadura
-    ["ES-BA","Extremadura"],["ES-CC","Extremadura"],
-    // Comunidad Valenciana
-    ["ES-A","Comunidad Valenciana"],["ES-CS","Comunidad Valenciana"],["ES-V","Comunidad Valenciana"],
-    // Murcia
-    ["ES-MU","Región de Murcia"],
-    // Andalucía
-    ["ES-AL","Andalucía"],["ES-CA","Andalucía"],["ES-CO","Andalucía"],["ES-GR","Andalucía"],
-    ["ES-H","Andalucía"],["ES-J","Andalucía"],["ES-MA","Andalucía"],["ES-SE","Andalucía"],
-    // Baleares / Canarias
-    ["ES-PM","Illes Balears"],["ES-GC","Canarias"],["ES-TF","Canarias"],
-    // Ceuta / Melilla
-    ["ES-CE","Ceuta"],["ES-ML","Melilla"]
-  ]);
-
-  // ---- color por comunidad + variación por provincia ----
-  function hashToHue(str){
-    let h = 0;
-    for (let i=0;i<str.length;i++) h = (h*33 + str.charCodeAt(i)) >>> 0;
-    return h % 360;
-  }
-  function colorCommunity(cc){
-    const hue = hashToHue(cc);
-    return { hue, sat: 70, light: 50 };
-  }
-  function colorProvince(cc, code){
-    const base = colorCommunity(cc);
-    let k = 0;
-    for (let i=0;i<code.length;i++) k = (k*29 + code.charCodeAt(i)) >>> 0;
-    const delta = (k % 18) - 9;
-    const light = Math.max(38, Math.min(68, base.light + delta));
-    return `hsl(${base.hue} ${base.sat}% ${light}%)`;
-  }
-
-  // ---- tooltip ----
-  function showTip(text, ev){
-    TIP.style.display = "block";
-    TIP.textContent = text;
-    const r = STAGE.getBoundingClientRect();
-    TIP.style.left = (ev.clientX - r.left) + "px";
-    TIP.style.top  = (ev.clientY - r.top) + "px";
-  }
-  function hideTip(){ TIP.style.display = "none"; }
-
-  // ---- cargar SVG real ----
-  let svgText = "";
-  try{
-    const res = await fetch("./spain-provinces.svg");
-    if(!res.ok) throw new Error("No encontrado");
-    svgText = await res.text();
-  }catch(e){
-    LOADING?.remove();
-    STAGE.innerHTML = `
-      <div style="padding:12px">
-        <div class="bad">No puedo cargar <code>spain-provinces.svg</code></div>
-        <div class="hint">
-          Asegúrate de que el archivo existe en el repo y se llama EXACTAMENTE así.
-          <br>Debe estar en la misma carpeta que <code>index.html</code>.
-        </div>
-      </div>`;
-    return;
-  }
-
-  LOADING?.remove();
-  STAGE.insertAdjacentHTML("beforeend", svgText);
-
-  const svg = STAGE.querySelector("svg");
-  if(!svg){
-    STAGE.innerHTML = `<div style="padding:12px" class="bad">El archivo no contiene un &lt;svg&gt; válido.</div>`;
-    return;
-  }
-
-  // Asegurar viewBox
-  if(!svg.getAttribute("viewBox")){
-    const w = svg.getAttribute("width") || 1200;
-    const h = svg.getAttribute("height") || 800;
-    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-  }
-
-  // Provincias = grupos con id="ES-XX"
-  const provinceGroups = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
-  if(!provinceGroups.length){
-    STAGE.insertAdjacentHTML("beforeend",
-      `<div style="padding:12px" class="bad">Tu SVG no tiene grupos <code>&lt;g id="ES-..."&gt;</code></div>`
-    );
-    return;
-  }
-
-  // Extraer: path + nombre (del text del propio SVG) + comunidad
-  const catalog = [];
-  for(const g of provinceGroups){
-    const code = g.id;
-    const cc = CODE_TO_CC.get(code);
-    if(!cc) continue;
-
-    const pathEl = g.querySelector("path");
-    if(!pathEl) continue;
-
-    const label = (g.querySelector("text")?.textContent || "").replace(/\s+/g," ").trim();
-    const name = label || code;
-
-    catalog.push({ code, cc, name, pathD: pathEl.getAttribute("d") });
-  }
-
-  STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
-
-  // Re-montar el SVG (limpio) para el juego
-  const vb = svg.getAttribute("viewBox");
-  svg.innerHTML = "";
-  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
-  svg.setAttribute("viewBox", vb);
-
-  const NS = "http://www.w3.org/2000/svg";
-  const gBase   = document.createElementNS(NS,"g"); gBase.id="base";
-  const gSlots  = document.createElementNS(NS,"g"); gSlots.id="slots";
-  const gPlaced = document.createElementNS(NS,"g"); gPlaced.id="placed";
-  const gPieces = document.createElementNS(NS,"g"); gPieces.id="pieces";
-  const gLabProv= document.createElementNS(NS,"g"); gLabProv.id="labelsProv";
-  const gLabCC  = document.createElementNS(NS,"g"); gLabCC.id="labelsCC";
-  svg.append(gBase,gSlots,gPlaced,gPieces,gLabProv,gLabCC);
-
-  // Crear base + slots (en su posición real)
-  const slotByCode = new Map();
-  const baseByCode = new Map();
-  for(const p of catalog){
-    const base = document.createElementNS(NS,"path");
-    base.setAttribute("class","prov-base");
-    base.setAttribute("data-code", p.code);
-    base.setAttribute("fill", colorProvince(p.cc, p.code));
-    base.setAttribute("d", p.pathD);
-    base.addEventListener("mousemove",(ev)=>showTip(`${p.name} — ${p.cc}`, ev));
-    base.addEventListener("mouseleave", hideTip);
-    gBase.appendChild(base);
-    baseByCode.set(p.code, base);
-
-    const slot = document.createElementNS(NS,"path");
-    slot.setAttribute("class","prov-slot");
-    slot.setAttribute("data-code", p.code);
-    slot.setAttribute("d", p.pathD);
-    gSlots.appendChild(slot);
-    slotByCode.set(p.code, slot);
-  }
-
-  // --- labels (provincias y comunidad) ---
-  let labelsOn = true;
-
-  function getBBoxOfPathD(d){
-    // Creamos un path temporal para medir
-    const tmp = document.createElementNS(NS,"path");
-    tmp.setAttribute("d", d);
-    tmp.setAttribute("visibility","hidden");
-    svg.appendChild(tmp);
-    const b = tmp.getBBox();
-    tmp.remove();
-    return b;
-  }
-
-  function buildLabels(activeList, ccName){
-    gLabProv.innerHTML = "";
-    gLabCC.innerHTML = "";
-    if(!labelsOn) return;
-
-    // Nombres de provincia SOLO de la comunidad actual (para que no se pise todo)
-    for(const p of activeList){
-      const b = getBBoxOfPathD(p.pathD);
-      const t = document.createElementNS(NS,"text");
-      t.setAttribute("class","label-prov");
-      t.setAttribute("text-anchor","middle");
-      t.setAttribute("dominant-baseline","middle");
-      t.setAttribute("x", (b.x + b.width/2).toFixed(2));
-      t.setAttribute("y", (b.y + b.height/2).toFixed(2));
-      t.textContent = p.name;
-      gLabProv.appendChild(t);
+<h1>Juego: Provincias de España</h1>
+<div class="game-container">
+<div class="top-bar">
+<div class="question">
+        Haz clic en la provincia: <span id="targetProvince">Cargando...</span>
+</div>
+<div class="controls">
+<span class="score">Aciertos: <span id="score">0</span></span>
+<button id="btnSkip">Cambiar provincia</button>
+<button id="btnResetColors">Reset colores</button>
+</div>
+</div>
+ 
+    <div id="map"></div>
+ 
+    <div id="feedback" class="feedback"></div>
+</div>
+ 
+  <!-- Leaflet JS -->
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+></script>
+ 
+  <script>
+    // 🔹 Crear el mapa centrado en España
+    const map = L.map("map", {
+      zoomSnap: 0.25,
+      zoomDelta: 0.5
+    }).setView([40.0, -3.7], 5.5);
+ 
+    // Fondo gris clarito para que se vea bonito y limpio
+    L.tileLayer("", {
+      attribution: ""
+    });
+ 
+    // Solo color de fondo del div
+    document.getElementById("map").style.background = "#e3f2fd";
+ 
+    // 🔹 URL GeoJSON de provincias de España
+    const GEOJSON_URL =
+      "https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-provinces.geojson%22;
+ 
+    let provincesLayer = null;
+    let provincesList = [];
+    let currentTarget = null;
+    let score = 0;
+ 
+    const targetSpan = document.getElementById("targetProvince");
+    const feedbackDiv = document.getElementById("feedback");
+    const scoreSpan = document.getElementById("score");
+    const btnSkip = document.getElementById("btnSkip");
+    const btnResetColors = document.getElementById("btnResetColors");
+ 
+    // Función para sacar el nombre de la provincia sin importar el campo exacto
+    function getProvinceName(feature) {
+      const props = feature.properties || {};
+      return (
+        props.name ||
+        props.NAME ||
+        props.province ||
+        props.Provincia ||
+        props.provincia ||
+        "Provincia"
+      );
     }
-
-    // Etiqueta grande de comunidad en el centro del bounding conjunto
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    for(const p of activeList){
-      const b = getBBoxOfPathD(p.pathD);
-      minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
-      maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
+ 
+    // Estilo por defecto de cada provincia
+    function defaultStyle() {
+      return {
+        color: "#ffffff",
+        weight: 1,
+        fillColor: "#90caf9",
+        fillOpacity: 0.7
+      };
     }
-    const ccText = document.createElementNS(NS,"text");
-    ccText.setAttribute("class","label-cc");
-    ccText.setAttribute("text-anchor","middle");
-    ccText.setAttribute("dominant-baseline","middle");
-    ccText.setAttribute("x", ((minX+maxX)/2).toFixed(2));
-    ccText.setAttribute("y", ((minY+maxY)/2).toFixed(2));
-    ccText.textContent = ccName;
-    gLabCC.appendChild(ccText);
-  }
-
-  // ---- juego por comunidades ----
-  let levelIndex = 0;
-  let activeList = [];
-  let placed = new Set();
-  const pieceByCode = new Map();
-
-  function clearHint(){
-    gSlots.querySelectorAll(".prov-slot").forEach(el=>el.classList.remove("hint"));
-  }
-
-  function renderChips(){
-    CHIPS.innerHTML = "";
-    for(const p of activeList){
-      const chip = document.createElement("div");
-      chip.className = "chip";
-      chip.textContent = p.name;
-
-      const base = colorCommunity(p.cc);
-      chip.style.borderColor = `hsl(${base.hue} 80% 70%)`;
-      chip.style.background  = `hsl(${base.hue} 90% 96%)`;
-      chip.style.boxShadow   = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
-
-      chip.dataset.code = p.code;
-      if(placed.has(p.code)) chip.classList.add("done");
-      chip.onclick = (ev)=> spawnPiece(p, ev);
-      CHIPS.appendChild(chip);
+ 
+    // Estilo para hover
+    function hoverStyle() {
+      return {
+        weight: 2,
+        color: "#0d47a1",
+        fillColor: "#64b5f6",
+        fillOpacity: 0.9
+      };
     }
-  }
-
-  function resetOpacityForLevel(){
-    const cc = LEVELS[levelIndex];
-    for(const p of catalog){
-      const base = baseByCode.get(p.code);
-      if(!base) continue;
-      base.style.opacity = (p.cc === cc) ? "0.20" : "0.30";
+ 
+    // Estilo para acierto
+    function correctStyle() {
+      return {
+        color: "#1b5e20",
+        weight: 2,
+        fillColor: "#66bb6a",
+        fillOpacity: 0.9
+      };
     }
-  }
-
-  function renderLevel(){
-    placed = new Set();
-    clearHint();
-    gPlaced.innerHTML = "";
-    gPieces.innerHTML = "";
-    pieceByCode.clear();
-
-    const cc = LEVELS[levelIndex];
-    ZONE.textContent = cc;
-
-    activeList = catalog.filter(p=>p.cc === cc);
-
-    TOTAL.textContent = String(activeList.length);
-    PROG.textContent = "0";
-
-    renderChips();
-    buildLabels(activeList, cc);
-    resetOpacityForLevel();
-  }
-
-  function nextLevel(){
-    levelIndex++;
-    if(levelIndex >= LEVELS.length){
-      alert("¡España completada! 🇪🇸");
-      levelIndex = 0;
+ 
+    // Estilo para error momentáneo
+    function wrongStyle() {
+      return {
+        color: "#b71c1c",
+        weight: 2,
+        fillColor: "#ef9a9a",
+        fillOpacity: 0.9
+      };
     }
-    renderLevel();
-  }
-
-  function randomPending(){
-    const pending = activeList.filter(p=>!placed.has(p.code));
-    if(!pending.length) return null;
-    return pending[Math.floor(Math.random()*pending.length)];
-  }
-
-  // ---- drag & snap (piezas creadas al click) ----
-  let dragging = null;
-  let draggingCode = null;
-  let dragStart = null;
-  let dragStartTransform = null;
-
-  function svgPoint(evt){
-    const p = svg.createSVGPoint();
-    p.x = evt.clientX; p.y = evt.clientY;
-    return p.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function getTransform(node){
-    const t = node.getAttribute("transform") || "translate(0,0)";
-    const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
-    return {x: m?+m[1]:0, y: m?+m[2]:0};
-  }
-  function setTransform(node, x, y){
-    node.setAttribute("transform", `translate(${x},${y})`);
-  }
-
-  function bboxCenterFromD(d){
-    const b = getBBoxOfPathD(d);
-    return {cx: b.x + b.width/2, cy: b.y + b.height/2, b};
-  }
-
-  function spawnPiece(p, ev){
-    if(placed.has(p.code)) return;
-
-    let node = pieceByCode.get(p.code);
-    if(!node){
-      node = document.createElementNS(NS,"path");
-      node.setAttribute("class","piece");
-      node.setAttribute("data-code", p.code);
-      node.setAttribute("fill", colorProvince(p.cc, p.code));
-      node.setAttribute("d", p.pathD);
-      gPieces.appendChild(node);
-      pieceByCode.set(p.code, node);
-
-      // aparece cerca del cursor
-      const sp = svgPoint(ev);
-      const c = bboxCenterFromD(p.pathD);
-      setTransform(node, sp.x - c.cx, sp.y - c.cy);
+ 
+    // Elegir una nueva provincia objetivo
+    function chooseNewTarget() {
+      if (!provincesList.length) return;
+      const randomIndex = Math.floor(Math.random() * provincesList.length);
+      currentTarget = provincesList[randomIndex];
+      targetSpan.textContent = currentTarget;
+      feedbackDiv.textContent = "";
+      feedbackDiv.className = "feedback";
     }
-
-    dragging = node;
-    draggingCode = p.code;
-    dragging.classList.add("dragging");
-    dragStart = svgPoint(ev);
-    dragStartTransform = getTransform(dragging);
-  }
-
-  function trySnap(node, code){
-    const p = activeList.find(x=>x.code===code);
-    if(!p) return false;
-
-    const target = bboxCenterFromD(p.pathD); // centro real
-    const t = getTransform(node);
-    const baseC = bboxCenterFromD(p.pathD); // centro del path “sin transform”
-    const current = { cx: baseC.cx + t.x, cy: baseC.cy + t.y };
-
-    const dist = Math.hypot(current.cx - target.cx, current.cy - target.cy);
-    if(dist > SNAP_DISTANCE) return false;
-
-    // transform exacto para alinear
-    setTransform(node, target.cx - baseC.cx, target.cy - baseC.cy);
-
-    node.classList.remove("dragging");
-    gPlaced.appendChild(node);
-
-    placed.add(code);
-    PROG.textContent = String(placed.size);
-
-    const chip = CHIPS.querySelector(`.chip[data-code="${code}"]`);
-    if(chip) chip.classList.add("done");
-
-    const base = baseByCode.get(code);
-    if(base) base.style.opacity = "0.08";
-
-    clearHint();
-    if(placed.size === activeList.length){
-      setTimeout(()=>{ alert(`¡${ZONE.textContent} completada! 🎉`); nextLevel(); }, 120);
+ 
+    // Resetear colores de todas las provincias al estilo por defecto
+    function resetAllStyles() {
+      if (!provincesLayer) return;
+      provincesLayer.eachLayer(layer => {
+        provincesLayer.resetStyle(layer);
+      });
+      feedbackDiv.textContent = "";
+      feedbackDiv.className = "feedback";
     }
-    return true;
-  }
-
-  // Drag sobre piezas
-  svg.addEventListener("pointerdown", (ev) => {
-    const target = ev.target;
-    if(!(target instanceof SVGPathElement)) return;
-    if(!target.classList.contains("piece")) return;
-
-    const code = target.getAttribute("data-code");
-    if(!code || placed.has(code)) return;
-
-    dragging = target;
-    draggingCode = code;
-    dragging.classList.add("dragging");
-    dragStart = svgPoint(ev);
-    dragStartTransform = getTransform(dragging);
-    target.setPointerCapture?.(ev.pointerId);
-  });
-
-  window.addEventListener("pointermove", (ev) => {
-    if(!dragging) return;
-    const p = svgPoint(ev);
-    const dx = p.x - dragStart.x;
-    const dy = p.y - dragStart.y;
-    setTransform(dragging, dragStartTransform.x + dx, dragStartTransform.y + dy);
-  });
-
-  window.addEventListener("pointerup", () => {
-    if(!dragging) return;
-    trySnap(dragging, draggingCode);
-    dragging.classList.remove("dragging");
-    dragging = null;
-    draggingCode = null;
-  });
-
-  // Botones
-  BTN_HINT.onclick = () => {
-    clearHint();
-    const p = randomPending();
-    if(!p) return;
-    const slot = slotByCode.get(p.code);
-    if(slot) slot.classList.add("hint");
-  };
-
-  BTN_SHUFFLE.onclick = () => {
-    const items = Array.from(CHIPS.children);
-    for(let i=items.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      CHIPS.insertBefore(items[j], items[i]);
+ 
+    // Comprobar si la provincia pulsada es la correcta
+    function checkAnswer(clickedName, layer) {
+      if (!currentTarget) return;
+ 
+      const normalizedClicked = clickedName.toLowerCase();
+      const normalizedTarget = currentTarget.toLowerCase();
+ 
+      if (normalizedClicked === normalizedTarget) {
+        // ACIERTO
+        layer.setStyle(correctStyle());
+        feedbackDiv.textContent = "¡Muy bien! Has acertado " + clickedName + " 🎉";
+        feedbackDiv.className = "feedback ok";
+        score += 1;
+        scoreSpan.textContent = score;
+ 
+        // Elegir otra provincia después de un pequeño delay
+        setTimeout(() => {
+          resetAllStyles();
+          chooseNewTarget();
+        }, 1000);
+      } else {
+        // ERROR
+        const originalStyle = defaultStyle();
+        layer.setStyle(wrongStyle());
+        feedbackDiv.textContent =
+          "Uy, no. Has elegido " + clickedName + ". Inténtalo otra vez 🙂";
+        feedbackDiv.className = "feedback error";
+ 
+        // Volver al estilo original después de un momento
+        setTimeout(() => {
+          // Solo si no ha sido acertada entre medias
+          provincesLayer.resetStyle(layer);
+        }, 800);
+      }
     }
-  };
-
-  BTN_RESET.onclick = () => renderLevel();
-  BTN_NEXT.onclick = () => nextLevel();
-
-  BTN_LABELS.onclick = () => {
-    labelsOn = !labelsOn;
-    BTN_LABELS.textContent = `Nombres: ${labelsOn ? "ON" : "OFF"}`;
-    buildLabels(activeList, LEVELS[levelIndex]);
-  };
-
-  // start
-  renderLevel();
-})();
+ 
+    // Cargar GeoJSON y montar el juego
+    fetch(GEOJSON_URL)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("No se pudo cargar el GeoJSON de provincias.");
+        }
+        return response.json();
+      })
+      .then(data => {
+        provincesList = data.features.map(f => getProvinceName(f));
+ 
+        provincesLayer = L.geoJSON(data, {
+          style: defaultStyle,
+          onEachFeature: (feature, layer) => {
+            const name = getProvinceName(feature);
+ 
+            // Tooltip al pasar el ratón
+            layer.bindTooltip(name, {
+              direction: "auto",
+              sticky: true
+            });
+ 
+            // Eventos de interacción
+            layer.on("mouseover", function () {
+              if (
+                feedbackDiv.classList.contains("ok") &&
+                targetSpan.textContent === name
+              ) {
+                // si justo acabamos de acertar esa, no cambiar
+                return;
+              }
+              layer.setStyle(hoverStyle());
+            });
+ 
+            layer.on("mouseout", function () {
+              provincesLayer.resetStyle(layer);
+            });
+ 
+            layer.on("click", function () {
+              checkAnswer(name, layer);
+            });
+          }
+        }).addTo(map);
+ 
+        // Ajustar vista al contorno de España
+        map.fitBounds(provincesLayer.getBounds());
+ 
+        // Empezar el juego
+        chooseNewTarget();
+      })
+      .catch(err => {
+        console.error(err);
+        targetSpan.textContent = "Error cargando el mapa";
+        feedbackDiv.textContent =
+          "Ha habido un problema cargando el mapa. Revisa tu conexión a Internet.";
+        feedbackDiv.className = "feedback error";
+      });
+ 
+    // Botón "Cambiar provincia"
+    btnSkip.addEventListener("click", () => {
+      chooseNewTarget();
+    });
+ 
+    // Botón "Reset colores"
+    btnResetColors.addEventListener("click", () => {
+      resetAllStyles();
+    });
 </script>
 </body>
 </html>
