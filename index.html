@@ -3,12 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>España — Puzzle por Comunidades (Provincias)</title>
+  <title>España — Puzzle Provincias por Comunidades</title>
   <style>
-    body{margin:0;background:#f5f7ff;font-family:system-ui,sans-serif}
+    :root{
+      --bg:#f5f7ff; --card:#fff; --ink:#111827; --muted:#374151;
+      --line:#e5e7eb; --shadow:0 10px 25px rgba(0,0,0,.08);
+    }
+    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink)}
     .wrap{width:min(1400px,96vw);margin:0 auto;padding:16px}
     header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:900}
+    .pill{background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-weight:800}
     button{border:0;border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:900}
     .btn1{background:#f97316;color:#fff}
     .btn2{background:#ef4444;color:#fff}
@@ -19,11 +23,11 @@
     .grid{display:grid;grid-template-columns: 1fr 420px; gap:14px; margin-top:14px}
     @media (max-width: 1050px){ .grid{grid-template-columns:1fr} }
 
-    .card{background:#fff;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.08);padding:12px}
-    #stage{height:min(82vh,920px);border-radius:16px;overflow:hidden;position:relative}
-    #stage svg{width:100%;height:100%;display:block;background:#fff}
+    .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px}
+    #stage{height:min(82vh,920px);border-radius:16px;overflow:hidden;position:relative;background:#fff}
+    #stage svg{width:100%;height:100%;display:block}
 
-    .hint{color:#374151;margin-top:10px;line-height:1.4}
+    .hint{color:var(--muted);margin-top:10px;line-height:1.4}
     .ok{color:#16a34a;font-weight:900}
     .bad{color:#dc2626;font-weight:900}
     code{background:#f1f5f9;padding:2px 6px;border-radius:8px}
@@ -35,6 +39,7 @@
       cursor:pointer; user-select:none;
     }
     .chip.done{opacity:.55;text-decoration:line-through}
+    .chip:hover{filter:brightness(.98)}
 
     .tooltip{
       position:absolute; pointer-events:none;
@@ -56,7 +61,7 @@
       stroke:#111827; stroke-width:1.2; vector-effect:non-scaling-stroke;
       stroke-dasharray:7 6;
       pointer-events:none;
-      opacity:.9;
+      opacity:.95;
     }
     .prov-slot.hint{
       stroke:#f59e0b; stroke-width:2.8; stroke-dasharray:0;
@@ -70,12 +75,12 @@
     .piece.dragging{cursor:grabbing; opacity:.92}
 
     .label-prov{
-      font-size:10px; font-weight:800; fill:#0b1220;
+      font-size:10px; font-weight:900; fill:#0b1220;
       paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round;
       pointer-events:none; user-select:none;
     }
     .label-cc{
-      font-size:18px; font-weight:900; fill:#111827; opacity:.88;
+      font-size:18px; font-weight:1000; fill:#111827; opacity:.90;
       paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round;
       pointer-events:none; user-select:none;
     }
@@ -86,7 +91,7 @@
     <header>
       <div class="pill">Comunidad: <span id="zone">—</span></div>
       <div class="pill">Progreso: <span id="prog">0</span>/<span id="total">0</span></div>
-      <button class="btn1" id="shuffle">Mezclar bandeja</button>
+      <button class="btn1" id="shuffle">Mezclar lista</button>
       <button class="btn4" id="hintBtn">Pista</button>
       <button class="btn5" id="toggleLabels">Nombres: ON</button>
       <button class="btn2" id="reset">Reiniciar comunidad</button>
@@ -96,28 +101,25 @@
     <div class="grid">
       <div class="card" id="stage">
         <div id="tip" class="tooltip"></div>
-        <div id="loading" class="hint">Cargando mapa real (GeoJSON)…</div>
+        <div id="loading" class="hint">Cargando mapa real (SVG)…</div>
       </div>
 
       <div class="card">
-        <b>Piezas disponibles (clic → arrastrar)</b>
+        <b>Piezas disponibles (click → aparece → arrastra)</b>
         <div id="status" class="hint"></div>
         <div class="hint">
-          Haz click en una provincia para “sacarla” como pieza y arrástrala al mapa.
+          Click en una provincia para “sacarla” como pieza y arrástrala al mapa.
           Encaja sola si cae cerca del hueco.
         </div>
         <div class="list" id="chips"></div>
         <div class="hint">
           Archivos requeridos en el repo:
           <br>— <code>index.html</code>
-          <br>— <code>espana-provincias.json</code>
+          <br>— <code>spain-provinces.svg</code>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- D3 -->
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <script>
 (async function(){
@@ -136,56 +138,9 @@
   const BTN_HINT    = document.getElementById("hintBtn");
   const BTN_LABELS  = document.getElementById("toggleLabels");
 
-  const SNAP_DISTANCE = 40;
+  const SNAP_DISTANCE = 28;
 
-  const norm = (s) => (s||"")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/\s+/g," ")
-    .trim();
-
-  // ===== COLORES por comunidad (base) y por provincia (variación) =====
-  function hashToHue(str){
-    let h = 0;
-    for (let i=0;i<str.length;i++) h = (h*33 + str.charCodeAt(i)) >>> 0;
-    return h % 360;
-  }
-
-  function colorCommunity(cc){
-    const hue = hashToHue(cc);
-    return { hue, sat: 68, light: 52 };
-  }
-
-  function colorProvince(cc, provKey){
-    const base = colorCommunity(cc);
-    let k = 0;
-    for (let i=0;i<provKey.length;i++) k = (k*29 + provKey.charCodeAt(i)) >>> 0;
-    const delta = (k % 18) - 9; // -9..+8
-    const light = Math.max(38, Math.min(68, base.light + delta));
-    return `hsl(${base.hue} ${base.sat}% ${light}%)`;
-  }
-
-  // ===== Mapa provincia -> comunidad =====
-  const PROV_TO_CC = new Map([
-    ["a coruna","Galicia"],["lugo","Galicia"],["ourense","Galicia"],["pontevedra","Galicia"],
-    ["asturias","Principado de Asturias"],["cantabria","Cantabria"],
-    ["alava","País Vasco"],["gipuzkoa","País Vasco"],["bizkaia","País Vasco"],
-    ["navarra","Navarra"],["la rioja","La Rioja"],
-    ["huesca","Aragón"],["teruel","Aragón"],["zaragoza","Aragón"],
-    ["barcelona","Cataluña"],["girona","Cataluña"],["lleida","Cataluña"],["tarragona","Cataluña"],
-    ["avila","Castilla y León"],["burgos","Castilla y León"],["leon","Castilla y León"],["palencia","Castilla y León"],["salamanca","Castilla y León"],
-    ["segovia","Castilla y León"],["soria","Castilla y León"],["valladolid","Castilla y León"],["zamora","Castilla y León"],
-    ["madrid","Comunidad de Madrid"],
-    ["albacete","Castilla-La Mancha"],["ciudad real","Castilla-La Mancha"],["cuenca","Castilla-La Mancha"],["guadalajara","Castilla-La Mancha"],["toledo","Castilla-La Mancha"],
-    ["caceres","Extremadura"],["badajoz","Extremadura"],
-    ["alicante","Comunidad Valenciana"],["castellon","Comunidad Valenciana"],["valencia","Comunidad Valenciana"],
-    ["murcia","Región de Murcia"],
-    ["almeria","Andalucía"],["cadiz","Andalucía"],["cordoba","Andalucía"],["granada","Andalucía"],["huelva","Andalucía"],["jaen","Andalucía"],["malaga","Andalucía"],["sevilla","Andalucía"],
-    ["illes balears","Illes Balears"],
-    ["las palmas","Canarias"],["santa cruz de tenerife","Canarias"],
-    ["ceuta","Ceuta"],["melilla","Melilla"]
-  ]);
-
+  // ---- comunidades (orden de niveles) ----
   const LEVELS = [
     "Galicia","Principado de Asturias","Cantabria","País Vasco","Navarra","La Rioja",
     "Aragón","Cataluña","Castilla y León","Comunidad de Madrid","Castilla-La Mancha",
@@ -193,66 +148,62 @@
     "Illes Balears","Canarias","Ceuta","Melilla"
   ];
 
-  function getProvName(props){
-    const keys = ["name","nombre","provincia","province","NAME","NOMBRE","PROV","prov_name","texto"];
-    for(const k of keys){
-      if(props && props[k] && String(props[k]).trim()) return String(props[k]).trim();
-    }
-    if(props){
-      for(const [k,v] of Object.entries(props)){
-        if(typeof v === "string" && v.length <= 40 && v.length >= 3) return v.trim();
-      }
-    }
-    return "Provincia";
+  // Mapa ISO ES-XX -> Comunidad
+  const CODE_TO_CC = new Map([
+    // Galicia
+    ["ES-C","Galicia"],["ES-LU","Galicia"],["ES-OR","Galicia"],["ES-PO","Galicia"],
+    // Asturias / Cantabria
+    ["ES-O","Principado de Asturias"],["ES-S","Cantabria"],
+    // País Vasco
+    ["ES-VI","País Vasco"],["ES-SS","País Vasco"],["ES-BI","País Vasco"],
+    // Navarra / Rioja
+    ["ES-NA","Navarra"],["ES-LO","La Rioja"],
+    // Aragón
+    ["ES-HU","Aragón"],["ES-TE","Aragón"],["ES-Z","Aragón"],
+    // Cataluña
+    ["ES-B","Cataluña"],["ES-GI","Cataluña"],["ES-L","Cataluña"],["ES-T","Cataluña"],
+    // Castilla y León
+    ["ES-AV","Castilla y León"],["ES-BU","Castilla y León"],["ES-LE","Castilla y León"],["ES-P","Castilla y León"],
+    ["ES-SA","Castilla y León"],["ES-SG","Castilla y León"],["ES-SO","Castilla y León"],["ES-VA","Castilla y León"],["ES-ZA","Castilla y León"],
+    // Madrid
+    ["ES-M","Comunidad de Madrid"],
+    // Castilla-La Mancha
+    ["ES-AB","Castilla-La Mancha"],["ES-CR","Castilla-La Mancha"],["ES-CU","Castilla-La Mancha"],["ES-GU","Castilla-La Mancha"],["ES-TO","Castilla-La Mancha"],
+    // Extremadura
+    ["ES-BA","Extremadura"],["ES-CC","Extremadura"],
+    // Comunidad Valenciana
+    ["ES-A","Comunidad Valenciana"],["ES-CS","Comunidad Valenciana"],["ES-V","Comunidad Valenciana"],
+    // Murcia
+    ["ES-MU","Región de Murcia"],
+    // Andalucía
+    ["ES-AL","Andalucía"],["ES-CA","Andalucía"],["ES-CO","Andalucía"],["ES-GR","Andalucía"],
+    ["ES-H","Andalucía"],["ES-J","Andalucía"],["ES-MA","Andalucía"],["ES-SE","Andalucía"],
+    // Baleares / Canarias
+    ["ES-PM","Illes Balears"],["ES-GC","Canarias"],["ES-TF","Canarias"],
+    // Ceuta / Melilla
+    ["ES-CE","Ceuta"],["ES-ML","Melilla"]
+  ]);
+
+  // ---- color por comunidad + variación por provincia ----
+  function hashToHue(str){
+    let h = 0;
+    for (let i=0;i<str.length;i++) h = (h*33 + str.charCodeAt(i)) >>> 0;
+    return h % 360;
+  }
+  function colorCommunity(cc){
+    const hue = hashToHue(cc);
+    return { hue, sat: 70, light: 50 };
+  }
+  function colorProvince(cc, code){
+    const base = colorCommunity(cc);
+    let k = 0;
+    for (let i=0;i<code.length;i++) k = (k*29 + code.charCodeAt(i)) >>> 0;
+    const delta = (k % 18) - 9;
+    const light = Math.max(38, Math.min(68, base.light + delta));
+    return `hsl(${base.hue} ${base.sat}% ${light}%)`;
   }
 
-  function provKey(feature){
-    return feature.id || feature.properties?.id || feature.properties?.code || feature.properties?.codigo || getProvName(feature.properties);
-  }
-
-  // ===== Cargar GeoJSON local =====
-  let geo;
-  try{
-    const res = await fetch("./espana-provincias.json");
-    if(!res.ok) throw new Error("no ok");
-    geo = await res.json();
-  }catch(e){
-    LOADING?.remove();
-    STAGE.innerHTML = `<div class="bad">No puedo cargar <code>espana-provincias.json</code></div>
-      <div class="hint">Asegúrate de que existe en el repo y se llama EXACTAMENTE así.</div>`;
-    return;
-  }
-
-  LOADING?.remove();
-
-  const features = (geo.type === "FeatureCollection") ? geo.features
-                 : (geo.type === "Feature") ? [geo]
-                 : (Array.isArray(geo)) ? geo
-                 : [];
-
-  if(!features.length){
-    STAGE.innerHTML = `<div class="bad">GeoJSON sin features</div>`;
-    return;
-  }
-
-  const catalog = features.map(f => {
-    const name = getProvName(f.properties || {});
-    const cc = PROV_TO_CC.get(norm(name)) || "OTRAS";
-    return { feature:f, name, cc, key: String(provKey(f)) };
-  }).filter(x => x.cc !== "OTRAS");
-
-  STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
-
-  // ===== SVG + capas =====
-  const svg = d3.select("#stage").append("svg");
-  const gRoot   = svg.append("g");
-  const gBase   = gRoot.append("g").attr("id","base");
-  const gSlots  = gRoot.append("g").attr("id","slots");
-  const gPlaced = gRoot.append("g").attr("id","placed");
-  const gPieces = gRoot.append("g").attr("id","pieces");
-  const gLabProv= gRoot.append("g").attr("id","labelsProv");
-  const gLabCC  = gRoot.append("g").attr("id","labelsCC");
-
+  // ---- tooltip ----
   function showTip(text, ev){
     TIP.style.display = "block";
     TIP.textContent = text;
@@ -262,91 +213,162 @@
   }
   function hideTip(){ TIP.style.display = "none"; }
 
-  function fitProjection(){
-    const w = document.getElementById("stage").clientWidth;
-    const h = document.getElementById("stage").clientHeight;
-    svg.attr("viewBox", `0 0 ${w} ${h}`);
-
-    const projection = d3.geoMercator();
-    projection.fitSize([w,h], {type:"FeatureCollection", features: catalog.map(d=>d.feature)});
-    const path = d3.geoPath(projection);
-    return {w,h,projection,path};
+  // ---- cargar SVG real ----
+  let svgText = "";
+  try{
+    const res = await fetch("./spain-provinces.svg");
+    if(!res.ok) throw new Error("No encontrado");
+    svgText = await res.text();
+  }catch(e){
+    LOADING?.remove();
+    STAGE.innerHTML = `
+      <div style="padding:12px">
+        <div class="bad">No puedo cargar <code>spain-provinces.svg</code></div>
+        <div class="hint">
+          Asegúrate de que el archivo existe en el repo y se llama EXACTAMENTE así.
+          <br>Debe estar en la misma carpeta que <code>index.html</code>.
+        </div>
+      </div>`;
+    return;
   }
 
-  let {w,h,projection,path} = fitProjection();
+  LOADING?.remove();
+  STAGE.insertAdjacentHTML("beforeend", svgText);
 
-  const zoom = d3.zoom()
-    .scaleExtent([1, 12])
-    .on("zoom", (ev) => gRoot.attr("transform", ev.transform));
-  svg.call(zoom).call(zoom.transform, d3.zoomIdentity);
+  const svg = STAGE.querySelector("svg");
+  if(!svg){
+    STAGE.innerHTML = `<div style="padding:12px" class="bad">El archivo no contiene un &lt;svg&gt; válido.</div>`;
+    return;
+  }
 
-  window.addEventListener("resize", () => {
-    ({w,h,projection,path} = fitProjection());
-    drawBase();
-    renderLevel();
-  });
+  // Asegurar viewBox
+  if(!svg.getAttribute("viewBox")){
+    const w = svg.getAttribute("width") || 1200;
+    const h = svg.getAttribute("height") || 800;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
 
-  function drawBase(){
-    const sel = gBase.selectAll("path").data(catalog, d=>d.key);
-    sel.join(
-      enter => enter.append("path")
-        .attr("class","prov-base")
-        .attr("data-key", d=>d.key)
-        .attr("fill", d=>colorProvince(d.cc, d.key))
-        .attr("d", d=>path(d.feature))
-        .on("mousemove", (ev, d)=> showTip(d.name, ev))
-        .on("mouseleave", hideTip),
-      update => update.attr("d", d=>path(d.feature)),
-      exit => exit.remove()
+  // Provincias = grupos con id="ES-XX"
+  const provinceGroups = Array.from(svg.querySelectorAll('g[id^="ES-"]'));
+  if(!provinceGroups.length){
+    STAGE.insertAdjacentHTML("beforeend",
+      `<div style="padding:12px" class="bad">Tu SVG no tiene grupos <code>&lt;g id="ES-..."&gt;</code></div>`
     );
+    return;
   }
-  drawBase();
 
-  // ===== Juego por comunidades =====
+  // Extraer: path + nombre (del text del propio SVG) + comunidad
+  const catalog = [];
+  for(const g of provinceGroups){
+    const code = g.id;
+    const cc = CODE_TO_CC.get(code);
+    if(!cc) continue;
+
+    const pathEl = g.querySelector("path");
+    if(!pathEl) continue;
+
+    const label = (g.querySelector("text")?.textContent || "").replace(/\s+/g," ").trim();
+    const name = label || code;
+
+    catalog.push({ code, cc, name, pathD: pathEl.getAttribute("d") });
+  }
+
+  STATUS.innerHTML = `<span class="ok">Provincias detectadas: ${catalog.length}</span>`;
+
+  // Re-montar el SVG (limpio) para el juego
+  const vb = svg.getAttribute("viewBox");
+  svg.innerHTML = "";
+  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  svg.setAttribute("viewBox", vb);
+
+  const NS = "http://www.w3.org/2000/svg";
+  const gBase   = document.createElementNS(NS,"g"); gBase.id="base";
+  const gSlots  = document.createElementNS(NS,"g"); gSlots.id="slots";
+  const gPlaced = document.createElementNS(NS,"g"); gPlaced.id="placed";
+  const gPieces = document.createElementNS(NS,"g"); gPieces.id="pieces";
+  const gLabProv= document.createElementNS(NS,"g"); gLabProv.id="labelsProv";
+  const gLabCC  = document.createElementNS(NS,"g"); gLabCC.id="labelsCC";
+  svg.append(gBase,gSlots,gPlaced,gPieces,gLabProv,gLabCC);
+
+  // Crear base + slots (en su posición real)
+  const slotByCode = new Map();
+  const baseByCode = new Map();
+  for(const p of catalog){
+    const base = document.createElementNS(NS,"path");
+    base.setAttribute("class","prov-base");
+    base.setAttribute("data-code", p.code);
+    base.setAttribute("fill", colorProvince(p.cc, p.code));
+    base.setAttribute("d", p.pathD);
+    base.addEventListener("mousemove",(ev)=>showTip(`${p.name} — ${p.cc}`, ev));
+    base.addEventListener("mouseleave", hideTip);
+    gBase.appendChild(base);
+    baseByCode.set(p.code, base);
+
+    const slot = document.createElementNS(NS,"path");
+    slot.setAttribute("class","prov-slot");
+    slot.setAttribute("data-code", p.code);
+    slot.setAttribute("d", p.pathD);
+    gSlots.appendChild(slot);
+    slotByCode.set(p.code, slot);
+  }
+
+  // --- labels (provincias y comunidad) ---
+  let labelsOn = true;
+
+  function getBBoxOfPathD(d){
+    // Creamos un path temporal para medir
+    const tmp = document.createElementNS(NS,"path");
+    tmp.setAttribute("d", d);
+    tmp.setAttribute("visibility","hidden");
+    svg.appendChild(tmp);
+    const b = tmp.getBBox();
+    tmp.remove();
+    return b;
+  }
+
+  function buildLabels(activeList, ccName){
+    gLabProv.innerHTML = "";
+    gLabCC.innerHTML = "";
+    if(!labelsOn) return;
+
+    // Nombres de provincia SOLO de la comunidad actual (para que no se pise todo)
+    for(const p of activeList){
+      const b = getBBoxOfPathD(p.pathD);
+      const t = document.createElementNS(NS,"text");
+      t.setAttribute("class","label-prov");
+      t.setAttribute("text-anchor","middle");
+      t.setAttribute("dominant-baseline","middle");
+      t.setAttribute("x", (b.x + b.width/2).toFixed(2));
+      t.setAttribute("y", (b.y + b.height/2).toFixed(2));
+      t.textContent = p.name;
+      gLabProv.appendChild(t);
+    }
+
+    // Etiqueta grande de comunidad en el centro del bounding conjunto
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of activeList){
+      const b = getBBoxOfPathD(p.pathD);
+      minX=Math.min(minX,b.x); minY=Math.min(minY,b.y);
+      maxX=Math.max(maxX,b.x+b.width); maxY=Math.max(maxY,b.y+b.height);
+    }
+    const ccText = document.createElementNS(NS,"text");
+    ccText.setAttribute("class","label-cc");
+    ccText.setAttribute("text-anchor","middle");
+    ccText.setAttribute("dominant-baseline","middle");
+    ccText.setAttribute("x", ((minX+maxX)/2).toFixed(2));
+    ccText.setAttribute("y", ((minY+maxY)/2).toFixed(2));
+    ccText.textContent = ccName;
+    gLabCC.appendChild(ccText);
+  }
+
+  // ---- juego por comunidades ----
   let levelIndex = 0;
   let activeList = [];
   let placed = new Set();
-  let labelsOn = true;
+  const pieceByCode = new Map();
 
   function clearHint(){
-    gSlots.selectAll(".prov-slot").classed("hint", false);
-  }
-
-  function randomPending(){
-    const pending = activeList.filter(p=>!placed.has(p.key));
-    if(!pending.length) return null;
-    return pending[Math.floor(Math.random()*pending.length)];
-  }
-
-  function buildLabels(){
-    gLabProv.selectAll("*").remove();
-    gLabCC.selectAll("*").remove();
-    if(!labelsOn) return;
-
-    gLabProv.selectAll("text")
-      .data(activeList, d=>d.key)
-      .join("text")
-      .attr("class","label-prov")
-      .attr("text-anchor","middle")
-      .attr("dominant-baseline","middle")
-      .text(d=>d.name)
-      .attr("x", d=>path.centroid(d.feature)[0])
-      .attr("y", d=>path.centroid(d.feature)[1]);
-
-    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-    for(const p of activeList){
-      const b = path.bounds(p.feature);
-      minX = Math.min(minX, b[0][0]); minY = Math.min(minY, b[0][1]);
-      maxX = Math.max(maxX, b[1][0]); maxY = Math.max(maxY, b[1][1]);
-    }
-    const ccName = LEVELS[levelIndex];
-    gLabCC.append("text")
-      .attr("class","label-cc")
-      .attr("text-anchor","middle")
-      .attr("dominant-baseline","middle")
-      .attr("x", (minX+maxX)/2)
-      .attr("y", (minY+maxY)/2)
-      .text(ccName);
+    gSlots.querySelectorAll(".prov-slot").forEach(el=>el.classList.remove("hint"));
   }
 
   function renderChips(){
@@ -361,38 +383,28 @@
       chip.style.background  = `hsl(${base.hue} 90% 96%)`;
       chip.style.boxShadow   = `inset 0 0 0 2px hsl(${base.hue} 70% 70%)`;
 
-      chip.dataset.key = p.key;
-      if(placed.has(p.key)) chip.classList.add("done");
+      chip.dataset.code = p.code;
+      if(placed.has(p.code)) chip.classList.add("done");
       chip.onclick = (ev)=> spawnPiece(p, ev);
       CHIPS.appendChild(chip);
     }
   }
 
-  function renderSlots(){
-    const sel = gSlots.selectAll("path").data(activeList, d=>d.key);
-    sel.join(
-      enter => enter.append("path")
-        .attr("class","prov-slot")
-        .attr("data-key", d=>d.key)
-        .attr("d", d=>path(d.feature)),
-      update => update.attr("d", d=>path(d.feature)),
-      exit => exit.remove()
-    );
-  }
-
   function resetOpacityForLevel(){
-    gBase.selectAll("path").each(function(d){
-      const el = d3.select(this);
-      if(d.cc === LEVELS[levelIndex]) el.style("opacity", 0.22);
-      else el.style("opacity", 0.30);
-    });
+    const cc = LEVELS[levelIndex];
+    for(const p of catalog){
+      const base = baseByCode.get(p.code);
+      if(!base) continue;
+      base.style.opacity = (p.cc === cc) ? "0.20" : "0.30";
+    }
   }
 
   function renderLevel(){
     placed = new Set();
-    gPlaced.selectAll("*").remove();
-    gPieces.selectAll("*").remove();
     clearHint();
+    gPlaced.innerHTML = "";
+    gPieces.innerHTML = "";
+    pieceByCode.clear();
 
     const cc = LEVELS[levelIndex];
     ZONE.textContent = cc;
@@ -402,9 +414,8 @@
     TOTAL.textContent = String(activeList.length);
     PROG.textContent = "0";
 
-    renderSlots();
     renderChips();
-    buildLabels();
+    buildLabels(activeList, cc);
     resetOpacityForLevel();
   }
 
@@ -417,16 +428,22 @@
     renderLevel();
   }
 
-  // ===== piezas =====
+  function randomPending(){
+    const pending = activeList.filter(p=>!placed.has(p.code));
+    if(!pending.length) return null;
+    return pending[Math.floor(Math.random()*pending.length)];
+  }
+
+  // ---- drag & snap (piezas creadas al click) ----
   let dragging = null;
-  let draggingKey = null;
+  let draggingCode = null;
   let dragStart = null;
   let dragStartTransform = null;
 
-  function getPointerInSvg(ev){
-    const pt = svg.node().createSVGPoint();
-    pt.x = ev.clientX; pt.y = ev.clientY;
-    return pt.matrixTransform(svg.node().getScreenCTM().inverse());
+  function svgPoint(evt){
+    const p = svg.createSVGPoint();
+    p.x = evt.clientX; p.y = evt.clientY;
+    return p.matrixTransform(svg.getScreenCTM().inverse());
   }
 
   function getTransform(node){
@@ -434,67 +451,67 @@
     const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(t);
     return {x: m?+m[1]:0, y: m?+m[2]:0};
   }
-
   function setTransform(node, x, y){
     node.setAttribute("transform", `translate(${x},${y})`);
   }
 
-  const pieceByKey = new Map();
+  function bboxCenterFromD(d){
+    const b = getBBoxOfPathD(d);
+    return {cx: b.x + b.width/2, cy: b.y + b.height/2, b};
+  }
 
   function spawnPiece(p, ev){
-    if(placed.has(p.key)) return;
+    if(placed.has(p.code)) return;
 
-    let node = pieceByKey.get(p.key);
+    let node = pieceByCode.get(p.code);
     if(!node){
-      node = document.createElementNS("http://www.w3.org/2000/svg","path");
+      node = document.createElementNS(NS,"path");
       node.setAttribute("class","piece");
-      node.setAttribute("data-key", p.key);
-      node.setAttribute("fill", colorProvince(p.cc, p.key));
-      node.setAttribute("d", path(p.feature));
-      gPieces.node().appendChild(node);
-      pieceByKey.set(p.key, node);
+      node.setAttribute("data-code", p.code);
+      node.setAttribute("fill", colorProvince(p.cc, p.code));
+      node.setAttribute("d", p.pathD);
+      gPieces.appendChild(node);
+      pieceByCode.set(p.code, node);
 
-      const sp = getPointerInSvg(ev);
-      const c = path.centroid(p.feature);
-      setTransform(node, sp.x - c[0], sp.y - c[1]);
+      // aparece cerca del cursor
+      const sp = svgPoint(ev);
+      const c = bboxCenterFromD(p.pathD);
+      setTransform(node, sp.x - c.cx, sp.y - c.cy);
     }
 
     dragging = node;
-    draggingKey = p.key;
+    draggingCode = p.code;
     dragging.classList.add("dragging");
-    dragStart = getPointerInSvg(ev);
+    dragStart = svgPoint(ev);
     dragStartTransform = getTransform(dragging);
   }
 
-  function trySnap(node, key){
-    const p = activeList.find(x=>x.key===key);
+  function trySnap(node, code){
+    const p = activeList.find(x=>x.code===code);
     if(!p) return false;
 
-    const target = path.centroid(p.feature);
-    const current = (function(){
-      const t = getTransform(node);
-      const c0 = path.centroid(p.feature);
-      return [c0[0] + t.x, c0[1] + t.y];
-    })();
+    const target = bboxCenterFromD(p.pathD); // centro real
+    const t = getTransform(node);
+    const baseC = bboxCenterFromD(p.pathD); // centro del path “sin transform”
+    const current = { cx: baseC.cx + t.x, cy: baseC.cy + t.y };
 
-    const dist = Math.hypot(current[0]-target[0], current[1]-target[1]);
+    const dist = Math.hypot(current.cx - target.cx, current.cy - target.cy);
     if(dist > SNAP_DISTANCE) return false;
 
-    const baseC = path.centroid(p.feature);
-    setTransform(node, target[0]-baseC[0], target[1]-baseC[1]);
+    // transform exacto para alinear
+    setTransform(node, target.cx - baseC.cx, target.cy - baseC.cy);
 
     node.classList.remove("dragging");
-    gPlaced.node().appendChild(node);
+    gPlaced.appendChild(node);
 
-    placed.add(key);
+    placed.add(code);
     PROG.textContent = String(placed.size);
 
-    const chip = CHIPS.querySelector(`.chip[data-key="${key}"]`);
+    const chip = CHIPS.querySelector(`.chip[data-code="${code}"]`);
     if(chip) chip.classList.add("done");
 
-    gBase.selectAll("path").each(function(d){
-      if(d.key === key) d3.select(this).style("opacity", 0.10);
-    });
+    const base = baseByCode.get(code);
+    if(base) base.style.opacity = "0.08";
 
     clearHint();
     if(placed.size === activeList.length){
@@ -503,25 +520,26 @@
     return true;
   }
 
-  svg.on("pointerdown", (ev) => {
+  // Drag sobre piezas
+  svg.addEventListener("pointerdown", (ev) => {
     const target = ev.target;
     if(!(target instanceof SVGPathElement)) return;
     if(!target.classList.contains("piece")) return;
 
-    const key = target.getAttribute("data-key");
-    if(!key || placed.has(key)) return;
+    const code = target.getAttribute("data-code");
+    if(!code || placed.has(code)) return;
 
     dragging = target;
-    draggingKey = key;
+    draggingCode = code;
     dragging.classList.add("dragging");
-    dragStart = getPointerInSvg(ev);
+    dragStart = svgPoint(ev);
     dragStartTransform = getTransform(dragging);
     target.setPointerCapture?.(ev.pointerId);
   });
 
-  svg.on("pointermove", (ev) => {
+  window.addEventListener("pointermove", (ev) => {
     if(!dragging) return;
-    const p = getPointerInSvg(ev);
+    const p = svgPoint(ev);
     const dx = p.x - dragStart.x;
     const dy = p.y - dragStart.y;
     setTransform(dragging, dragStartTransform.x + dx, dragStartTransform.y + dy);
@@ -529,20 +547,19 @@
 
   window.addEventListener("pointerup", () => {
     if(!dragging) return;
-    trySnap(dragging, draggingKey);
+    trySnap(dragging, draggingCode);
     dragging.classList.remove("dragging");
     dragging = null;
-    draggingKey = null;
+    draggingCode = null;
   });
 
-  // ===== Botones =====
+  // Botones
   BTN_HINT.onclick = () => {
     clearHint();
     const p = randomPending();
     if(!p) return;
-    gSlots.selectAll("path").each(function(d){
-      if(d.key === p.key) d3.select(this).classed("hint", true);
-    });
+    const slot = slotByCode.get(p.code);
+    if(slot) slot.classList.add("hint");
   };
 
   BTN_SHUFFLE.onclick = () => {
@@ -559,12 +576,13 @@
   BTN_LABELS.onclick = () => {
     labelsOn = !labelsOn;
     BTN_LABELS.textContent = `Nombres: ${labelsOn ? "ON" : "OFF"}`;
-    buildLabels();
+    buildLabels(activeList, LEVELS[levelIndex]);
   };
 
-  // Start
+  // start
   renderLevel();
 })();
 </script>
 </body>
 </html>
+
